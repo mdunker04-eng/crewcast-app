@@ -7,7 +7,7 @@
 require('dotenv').config();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const db = require('./db');
+const { pool, initDB } = require('./db');
 const readline = require('readline');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -18,14 +18,18 @@ async function setup() {
   console.log('  CrewCast — First-Time Setup');
   console.log('══════════════════════════════════════════\n');
 
+  // Initialize database schema
+  await initDB();
+
   // Check if any business already exists
-  const existing = db.prepare('SELECT COUNT(*) as count FROM businesses').get();
-  if (existing.count > 0) {
+  const { rows: existing } = await pool.query('SELECT COUNT(*) as count FROM businesses');
+  if (parseInt(existing[0].count) > 0) {
     console.log('A business already exists. To add another, use the admin dashboard.\n');
-    const businesses = db.prepare('SELECT * FROM businesses').all();
+    const { rows: businesses } = await pool.query('SELECT * FROM businesses');
     businesses.forEach(b => console.log(`  - ${b.name} (${b.slug})`));
     console.log('');
     rl.close();
+    await pool.end();
     return;
   }
 
@@ -38,14 +42,18 @@ async function setup() {
   if (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
     console.log('\nPIN must be 4-6 digits. Please run setup again.\n');
     rl.close();
+    await pool.end();
     return;
   }
 
   // Create business
-  const biz = db.prepare(`
+  const { rows: bizRows } = await pool.query(`
     INSERT INTO businesses (name, slug, owner_name, owner_phone)
-    VALUES (?, ?, ?, ?)
-  `).run(businessName, slug, ownerName, ownerPhone);
+    VALUES ($1, $2, $3, $4)
+    RETURNING id
+  `, [businessName, slug, ownerName, ownerPhone]);
+
+  const businessId = bizRows[0].id;
 
   // Create admin employee
   const pinHash = bcrypt.hashSync(pin, 10);
@@ -53,10 +61,10 @@ async function setup() {
   const [firstName, ...lastParts] = ownerName.split(' ');
   const lastName = lastParts.join(' ') || '';
 
-  db.prepare(`
+  await pool.query(`
     INSERT INTO employees (business_id, first_name, last_name, phone, pin_hash, role, invite_token)
-    VALUES (?, ?, ?, ?, ?, 'admin', ?)
-  `).run(biz.lastInsertRowid, firstName, lastName, ownerPhone, pinHash, inviteToken);
+    VALUES ($1, $2, $3, $4, $5, 'admin', $6)
+  `, [businessId, firstName, lastName, ownerPhone, pinHash, inviteToken]);
 
   console.log('\n Setup complete!\n');
   console.log(`  Business: ${businessName}`);
@@ -66,6 +74,7 @@ async function setup() {
   console.log(`  Then open: http://localhost:${process.env.PORT || 3000}\n`);
 
   rl.close();
+  await pool.end();
 }
 
 setup().catch(err => {

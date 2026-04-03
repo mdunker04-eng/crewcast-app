@@ -7,30 +7,17 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const crypto = require('crypto');
 const webpush = require('web-push');
+const { initDB } = require('./db');
+const seed = require('./seed');
 
 // Generate VAPID keys on first run if not set
 if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
   console.log('Generating VAPID keys for push notifications...');
   const vapidKeys = webpush.generateVAPIDKeys();
-  const fs = require('fs');
-  const envPath = path.join(__dirname, '..', '.env');
-  let envContent = '';
-  if (fs.existsSync(envPath)) {
-    envContent = fs.readFileSync(envPath, 'utf8');
-  }
-  if (!envContent.includes('VAPID_PUBLIC_KEY=') || envContent.includes('VAPID_PUBLIC_KEY=\n')) {
-    envContent = envContent.replace(/VAPID_PUBLIC_KEY=.*/, `VAPID_PUBLIC_KEY=${vapidKeys.publicKey}`);
-    envContent = envContent.replace(/VAPID_PRIVATE_KEY=.*/, `VAPID_PRIVATE_KEY=${vapidKeys.privateKey}`);
-    if (!envContent.includes('VAPID_PUBLIC_KEY=')) {
-      envContent += `\nVAPID_PUBLIC_KEY=${vapidKeys.publicKey}\nVAPID_PRIVATE_KEY=${vapidKeys.privateKey}\n`;
-    }
-    fs.writeFileSync(envPath, envContent);
-    process.env.VAPID_PUBLIC_KEY = vapidKeys.publicKey;
-    process.env.VAPID_PRIVATE_KEY = vapidKeys.privateKey;
-    console.log('VAPID keys saved to .env');
-  }
+  process.env.VAPID_PUBLIC_KEY = vapidKeys.publicKey;
+  process.env.VAPID_PRIVATE_KEY = vapidKeys.privateKey;
+  console.log('VAPID keys generated (set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY env vars to persist)');
 }
 
 const app = express();
@@ -71,10 +58,27 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-// ── Start ──
-app.listen(PORT, () => {
-  console.log(`\n══════════════════════════════════════════`);
-  console.log(`  CrewCast PWA Server`);
-  console.log(`  http://localhost:${PORT}`);
-  console.log(`══════════════════════════════════════════\n`);
-});
+// ── Start (async — init DB, seed, then listen) ──
+async function start() {
+  try {
+    // Initialize database schema
+    await initDB();
+    console.log('Database connected and schema ready');
+
+    // Auto-seed if empty
+    await seed();
+
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`\n══════════════════════════════════════════`);
+      console.log(`  CrewCast PWA Server`);
+      console.log(`  http://localhost:${PORT}`);
+      console.log(`══════════════════════════════════════════\n`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+}
+
+start();
