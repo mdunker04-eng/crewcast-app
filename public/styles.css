@@ -356,6 +356,11 @@ select.form-input { appearance: none; cursor: pointer; }
 .hidden { display: none !important; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ── Mobile: 4-col grid collapses to 2x2 ── */
+@media (max-width: 400px) {
+  .stat-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* ── Desktop adjustments ── */
 @media (min-width: 768px) {
   #app { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }

@@ -43,8 +43,22 @@ async function loadStations() {
       return;
     }
 
+    // Summary stats
+    const activeStations = stations.filter(s => s.active);
+    const totalStaff = activeStations.reduce((sum, s) => sum + (s.staff_needed || 0), 0);
+
     // Show existing stations with edit capability
     document.getElementById('stations-content').innerHTML = `
+      <div class="stat-grid mb-3">
+        <div class="stat-card">
+          <div class="stat-label">Active Stations</div>
+          <div class="stat-value">${activeStations.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Staff Needed</div>
+          <div class="stat-value">${totalStaff}</div>
+        </div>
+      </div>
       ${stations.map(s => `
         <div class="card station-card" data-id="${s.id}">
           <div class="flex justify-between items-center mb-2">
