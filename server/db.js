@@ -112,6 +112,7 @@ async function initDB() {
         open_time TEXT DEFAULT '09:00',
         close_time TEXT DEFAULT '17:00',
         arrive_early_minutes INTEGER DEFAULT 15,
+        staff_needed INTEGER DEFAULT 5,
         active BOOLEAN DEFAULT true,
         sort_order INTEGER DEFAULT 0,
         created_at TIMESTAMPTZ DEFAULT NOW(),

@@ -9,27 +9,29 @@ const { pool } = require('../db');
 const router = express.Router();
 
 // Default stations scraped from Center Grove Orchard website
+// Default stations scraped from Center Grove Orchard website
+// staffNeeded estimated for ~250 peak-day staff
 const DEFAULT_STATIONS = [
-  { name: 'Admission / Ticketing', description: 'Front gate entry and ticket sales' },
-  { name: 'Country Store', description: 'Retail shop — jams, pies, gifts' },
-  { name: 'Apple Picking', description: 'U-Pick apple orchard area' },
-  { name: 'Pumpkin Patch', description: 'Pick-your-own pumpkins' },
-  { name: 'Corn Maze', description: 'Corn maze supervision and assistance' },
-  { name: 'Hayride / Tractor Ride', description: 'Tractor-pulled wagon rides' },
-  { name: 'Food Stand', description: 'Burgers, grilled cheese, walking tacos' },
-  { name: 'Apple Goods / Bakery', description: 'Apple cider, donuts, pies, applesauce' },
-  { name: 'Jumping Pillow', description: 'Inflatable jumping pillow area' },
-  { name: 'Super Slide', description: 'Giant slide attraction' },
-  { name: 'Farm Animals / Petting Zoo', description: 'Animal area and goat races' },
-  { name: 'Pedal Tractors / Go-Carts', description: 'Pedal-powered vehicles for kids' },
-  { name: 'Train Ride', description: 'Train ride around the farm' },
-  { name: 'Apple Slingshot', description: 'Apple slingshot activity' },
-  { name: 'Corn Pool', description: 'Corn kernel play area for kids' },
-  { name: 'Sunflower Meadow', description: 'Sunflower field photo area' },
-  { name: 'Storybook Land', description: 'Themed character walk-through' },
-  { name: 'Schoolhouse', description: 'One-room schoolhouse attraction' },
-  { name: 'Fire Pit Area', description: 'Group fire pit rentals' },
-  { name: 'Parking / Shuttle', description: 'Parking lot and shuttle service' },
+  { name: 'Admission / Ticketing', description: 'Front gate entry and ticket sales', staffNeeded: 15 },
+  { name: 'Country Store', description: 'Retail shop — jams, pies, gifts', staffNeeded: 12 },
+  { name: 'Apple Picking', description: 'U-Pick apple orchard area', staffNeeded: 20 },
+  { name: 'Pumpkin Patch', description: 'Pick-your-own pumpkins', staffNeeded: 15 },
+  { name: 'Corn Maze', description: 'Corn maze supervision and assistance', staffNeeded: 10 },
+  { name: 'Hayride / Tractor Ride', description: 'Tractor-pulled wagon rides', staffNeeded: 12 },
+  { name: 'Food Stand', description: 'Burgers, grilled cheese, walking tacos', staffNeeded: 25 },
+  { name: 'Apple Goods / Bakery', description: 'Apple cider, donuts, pies, applesauce', staffNeeded: 15 },
+  { name: 'Jumping Pillow', description: 'Inflatable jumping pillow area', staffNeeded: 8 },
+  { name: 'Super Slide', description: 'Giant slide attraction', staffNeeded: 8 },
+  { name: 'Farm Animals / Petting Zoo', description: 'Animal area and goat races', staffNeeded: 12 },
+  { name: 'Pedal Tractors / Go-Carts', description: 'Pedal-powered vehicles for kids', staffNeeded: 10 },
+  { name: 'Train Ride', description: 'Train ride around the farm', staffNeeded: 8 },
+  { name: 'Apple Slingshot', description: 'Apple slingshot activity', staffNeeded: 6 },
+  { name: 'Corn Pool', description: 'Corn kernel play area for kids', staffNeeded: 8 },
+  { name: 'Sunflower Meadow', description: 'Sunflower field photo area', staffNeeded: 6 },
+  { name: 'Storybook Land', description: 'Themed character walk-through', staffNeeded: 6 },
+  { name: 'Schoolhouse', description: 'One-room schoolhouse attraction', staffNeeded: 4 },
+  { name: 'Fire Pit Area', description: 'Group fire pit rentals', staffNeeded: 8 },
+  { name: 'Parking / Shuttle', description: 'Parking lot and shuttle service', staffNeeded: 20 },
 ];
 
 // ── GET /api/stations ──
@@ -57,12 +59,12 @@ router.get('/defaults', authenticate, (req, res) => {
 // Add a single station (admin)
 router.post('/', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { name, description, openTime, closeTime, arriveEarlyMinutes } = req.body;
+    const { name, description, openTime, closeTime, arriveEarlyMinutes, staffNeeded } = req.body;
     if (!name) return res.status(400).json({ error: 'Station name required' });
 
     const { rows } = await pool.query(`
-      INSERT INTO stations (business_id, name, description, open_time, close_time, arrive_early_minutes)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO stations (business_id, name, description, open_time, close_time, arrive_early_minutes, staff_needed)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `, [
       req.user.businessId,
@@ -70,7 +72,8 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
       description || null,
       openTime || '09:00',
       closeTime || '17:00',
-      arriveEarlyMinutes || 15
+      arriveEarlyMinutes || 15,
+      staffNeeded || 5
     ]);
 
     res.json(rows[0]);
@@ -102,8 +105,8 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
         const s = stations[i];
         try {
           await client.query(`
-            INSERT INTO stations (business_id, name, description, open_time, close_time, arrive_early_minutes, sort_order)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO stations (business_id, name, description, open_time, close_time, arrive_early_minutes, staff_needed, sort_order)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           `, [
             req.user.businessId,
             s.name.trim(),
@@ -111,6 +114,7 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
             s.openTime || '09:00',
             s.closeTime || '17:00',
             s.arriveEarlyMinutes || 15,
+            s.staffNeeded || 5,
             i
           ]);
           added++;
@@ -138,7 +142,7 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
 // Update a station (admin)
 router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { name, description, openTime, closeTime, arriveEarlyMinutes, active } = req.body;
+    const { name, description, openTime, closeTime, arriveEarlyMinutes, staffNeeded, active } = req.body;
 
     const { rows } = await pool.query(
       'SELECT * FROM stations WHERE id = $1 AND business_id = $2',
@@ -153,8 +157,9 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
         open_time = COALESCE($3, open_time),
         close_time = COALESCE($4, close_time),
         arrive_early_minutes = COALESCE($5, arrive_early_minutes),
-        active = COALESCE($6, active)
-      WHERE id = $7
+        staff_needed = COALESCE($6, staff_needed),
+        active = COALESCE($7, active)
+      WHERE id = $8
       RETURNING *
     `, [
       name || null,
@@ -162,6 +167,7 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
       openTime || null,
       closeTime || null,
       arriveEarlyMinutes != null ? arriveEarlyMinutes : null,
+      staffNeeded != null ? staffNeeded : null,
       active != null ? active : null,
       req.params.id
     ]);
