@@ -132,20 +132,27 @@ async function initDB() {
 
     // One-time migration: update staff_needed for stations that still have default=5
     // This fixes stations imported before the staff_needed column had proper estimates
-    const staffDefaults = {
-      'Admission / Ticketing': 15, 'Country Store': 12, 'Apple Picking': 20,
-      'Pumpkin Patch': 15, 'Corn Maze': 10, 'Hayride / Tractor Ride': 12,
-      'Food Stand': 25, 'Apple Goods / Bakery': 15, 'Jumping Pillow': 8,
-      'Super Slide': 8, 'Farm Animals / Petting Zoo': 12, 'Pedal Tractors / Go-Carts': 10,
-      'Train Ride': 8, 'Apple Slingshot': 6, 'Corn Pool': 8,
-      'Sunflower Meadow': 6, 'Storybook Land': 6, 'Schoolhouse': 4,
-      'Fire Pit Area': 8, 'Parking / Shuttle': 20, 'Potty Barn Attendant': 4
-    };
-    for (const [name, needed] of Object.entries(staffDefaults)) {
-      await client.query(
-        'UPDATE stations SET staff_needed = $1 WHERE name = $2 AND staff_needed = 5 AND $1 != 5',
-        [needed, name]
-      );
+    try {
+      const staffDefaults = [
+        ['Admission / Ticketing', 15], ['Country Store', 12], ['Apple Picking', 20],
+        ['Pumpkin Patch', 15], ['Corn Maze', 10], ['Hayride / Tractor Ride', 12],
+        ['Food Stand', 25], ['Apple Goods / Bakery', 15], ['Jumping Pillow', 8],
+        ['Super Slide', 8], ['Farm Animals / Petting Zoo', 12], ['Pedal Tractors / Go-Carts', 10],
+        ['Train Ride', 8], ['Apple Slingshot', 6], ['Corn Pool', 8],
+        ['Sunflower Meadow', 6], ['Storybook Land', 6], ['Schoolhouse', 4],
+        ['Fire Pit Area', 8], ['Parking / Shuttle', 20], ['Potty Barn Attendant', 4]
+      ];
+      for (const [name, needed] of staffDefaults) {
+        if (needed !== 5) {
+          await client.query(
+            'UPDATE stations SET staff_needed = $1 WHERE name = $2 AND staff_needed = 5',
+            [needed, name]
+          );
+        }
+      }
+      console.log('Staff defaults migration complete');
+    } catch (migErr) {
+      console.log('Staff defaults migration skipped:', migErr.message);
     }
   } finally {
     client.release();
