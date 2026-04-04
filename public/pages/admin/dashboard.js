@@ -72,7 +72,10 @@ async function renderAdminDashboard(app) {
       <div class="card">
         <div class="card-title mb-3">Quick Actions</div>
         <div class="flex flex-col gap-2">
-          <button class="btn btn-primary btn-block" onclick="Router.navigate('/admin/schedules')">
+          <button class="btn btn-primary btn-block" onclick="Router.navigate('/admin/stations')">
+            ${SVG.station} Set Up Stations
+          </button>
+          <button class="btn btn-secondary btn-block" onclick="Router.navigate('/admin/schedules')">
             ${SVG.calendar} Create Schedule
           </button>
           <button class="btn btn-secondary btn-block" onclick="Router.navigate('/admin/employees')">

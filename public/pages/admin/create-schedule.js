@@ -1,6 +1,10 @@
 // ═══════════════════════════════════════════════════════
-// CrewCast — Admin Schedule Management
+// CrewCast — Admin Schedule Management (with Calendar)
 // ═══════════════════════════════════════════════════════
+
+let _calendarMonth = null;
+let _calendarYear = null;
+let _selectedDates = new Set();
 
 async function renderAdminSchedules(app) {
   app.innerHTML = `
@@ -59,27 +63,38 @@ async function renderAdminSchedules(app) {
 }
 
 function showCreateScheduleModal() {
-  const today = new Date();
-  const nextSat = new Date(today);
-  nextSat.setDate(today.getDate() + (6 - today.getDay() + 7) % 7);
-  const nextSun = new Date(nextSat);
-  nextSun.setDate(nextSat.getDate() + 1);
-
-  const satStr = nextSat.toISOString().split('T')[0];
-  const sunStr = nextSun.toISOString().split('T')[0];
+  // Initialize calendar to current month
+  const now = new Date();
+  _calendarMonth = now.getMonth();
+  _calendarYear = now.getFullYear();
+  _selectedDates = new Set();
 
   UI.showModal('New Schedule', `
     <div class="form-group">
       <label class="form-label">Schedule Name</label>
-      <input type="text" id="sched-name" class="form-input" placeholder="Weekend of May 3-4" value="Weekend of ${nextSat.toLocaleDateString('en-US', {month:'short', day:'numeric'})}">
+      <input type="text" id="sched-name" class="form-input" placeholder="e.g. Weekend of May 3-4">
     </div>
     <div class="form-group">
-      <label class="form-label">Start Date</label>
-      <input type="date" id="sched-start" class="form-input" value="${satStr}">
-    </div>
-    <div class="form-group">
-      <label class="form-label">End Date</label>
-      <input type="date" id="sched-end" class="form-input" value="${sunStr}">
+      <label class="form-label">Select Dates</label>
+      <p class="text-xs text-muted mb-2">Tap days on the calendar to select schedule dates</p>
+      <div class="calendar">
+        <div class="calendar-header">
+          <button class="btn btn-ghost btn-sm" onclick="schedCalNav(-1)">${SVG.chevLeft}</button>
+          <span id="sched-cal-title" class="semi"></span>
+          <button class="btn btn-ghost btn-sm" onclick="schedCalNav(1)">${SVG.chevRight}</button>
+        </div>
+        <div class="calendar-grid">
+          <div class="calendar-day-label">Sun</div>
+          <div class="calendar-day-label">Mon</div>
+          <div class="calendar-day-label">Tue</div>
+          <div class="calendar-day-label">Wed</div>
+          <div class="calendar-day-label">Thu</div>
+          <div class="calendar-day-label">Fri</div>
+          <div class="calendar-day-label">Sat</div>
+        </div>
+        <div id="sched-cal-days" class="calendar-grid"></div>
+      </div>
+      <div id="sched-selected-dates" class="text-xs text-muted"></div>
     </div>
     <div class="form-group">
       <label class="form-label">Notes (optional)</label>
@@ -89,16 +104,100 @@ function showCreateScheduleModal() {
     <button class="btn btn-primary" onclick="createSchedule()">Create</button>
     <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
   `);
+
+  renderScheduleCalendar();
+}
+
+function schedCalNav(dir) {
+  _calendarMonth += dir;
+  if (_calendarMonth < 0) { _calendarMonth = 11; _calendarYear--; }
+  if (_calendarMonth > 11) { _calendarMonth = 0; _calendarYear++; }
+  renderScheduleCalendar();
+}
+
+function renderScheduleCalendar() {
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+
+  document.getElementById('sched-cal-title').textContent =
+    `${monthNames[_calendarMonth]} ${_calendarYear}`;
+
+  const firstDay = new Date(_calendarYear, _calendarMonth, 1).getDay();
+  const daysInMonth = new Date(_calendarYear, _calendarMonth + 1, 0).getDate();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let html = '';
+
+  // Empty cells before first day
+  for (let i = 0; i < firstDay; i++) {
+    html += '<div class="calendar-day empty"></div>';
+  }
+
+  // Day cells
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(_calendarYear, _calendarMonth, d);
+    const dateStr = `${_calendarYear}-${String(_calendarMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const isPast = date < today;
+    const isToday = date.getTime() === today.getTime();
+    const isSelected = _selectedDates.has(dateStr);
+
+    let cls = 'calendar-day';
+    if (isPast) cls += ' other-month';
+    if (isToday) cls += ' today';
+    if (isSelected) cls += ' selected';
+
+    html += `<div class="${cls}" onclick="${isPast ? '' : `toggleSchedDate('${dateStr}')`}" style="${isPast ? 'cursor:default' : ''}">${d}</div>`;
+  }
+
+  document.getElementById('sched-cal-days').innerHTML = html;
+  updateSelectedDatesDisplay();
+}
+
+function toggleSchedDate(dateStr) {
+  if (_selectedDates.has(dateStr)) {
+    _selectedDates.delete(dateStr);
+  } else {
+    _selectedDates.add(dateStr);
+  }
+  renderScheduleCalendar();
+}
+
+function updateSelectedDatesDisplay() {
+  const el = document.getElementById('sched-selected-dates');
+  if (_selectedDates.size === 0) {
+    el.textContent = 'No dates selected';
+    return;
+  }
+  const sorted = Array.from(_selectedDates).sort();
+  el.textContent = `${sorted.length} date${sorted.length > 1 ? 's' : ''} selected: ${sorted.map(d => UI.formatDate(d)).join(', ')}`;
+
+  // Auto-fill schedule name if empty
+  const nameInput = document.getElementById('sched-name');
+  if (!nameInput.value && sorted.length > 0) {
+    if (sorted.length === 1) {
+      nameInput.value = UI.formatDate(sorted[0]);
+    } else {
+      nameInput.value = `${UI.formatDate(sorted[0])} - ${UI.formatDate(sorted[sorted.length - 1])}`;
+    }
+  }
 }
 
 async function createSchedule() {
   const name = document.getElementById('sched-name').value;
-  const startDate = document.getElementById('sched-start').value;
-  const endDate = document.getElementById('sched-end').value;
   const notes = document.getElementById('sched-notes').value;
 
-  if (!name || !startDate || !endDate) {
-    UI.toast('Name and dates required', 'error');
+  if (_selectedDates.size === 0) {
+    UI.toast('Select at least one date', 'error');
+    return;
+  }
+
+  const sorted = Array.from(_selectedDates).sort();
+  const startDate = sorted[0];
+  const endDate = sorted[sorted.length - 1];
+
+  if (!name) {
+    UI.toast('Name required', 'error');
     return;
   }
 

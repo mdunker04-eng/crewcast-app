@@ -100,11 +100,26 @@ async function renderScheduleDetail(app, params) {
   }
 }
 
-function showAddShiftsModal(scheduleId) {
+async function showAddShiftsModal(scheduleId) {
   const emps = window._scheduleEmployees || [];
   const schedule = window._scheduleData;
 
+  // Load stations for dropdown
+  let stationOptions = '<option value="">— No station —</option>';
+  try {
+    const stations = await API.getStations();
+    stationOptions += stations.filter(s => s.active).map(s =>
+      `<option value="${s.name}" data-open="${s.open_time}" data-close="${s.close_time}">${s.name}</option>`
+    ).join('');
+  } catch (e) { /* stations not set up yet, that's fine */ }
+
   UI.showModal('Add Shifts', `
+    <div class="form-group">
+      <label class="form-label">Station</label>
+      <select id="shift-station" class="form-input" onchange="onStationSelect()">
+        ${stationOptions}
+      </select>
+    </div>
     <div class="form-group">
       <label class="form-label">Date</label>
       <input type="date" id="shift-date" class="form-input" value="${schedule.start_date}">
@@ -116,10 +131,6 @@ function showAddShiftsModal(scheduleId) {
     <div class="form-group">
       <label class="form-label">End Time</label>
       <input type="time" id="shift-end" class="form-input" value="17:00">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Station (optional)</label>
-      <input type="text" id="shift-station" class="form-input" placeholder="e.g. Train, Bake Shop">
     </div>
     <div class="form-group">
       <label class="form-label">Select Employees</label>
@@ -169,6 +180,16 @@ async function addShiftsToSchedule(scheduleId) {
   } catch (err) {
     UI.toast(err.message, 'error');
   }
+}
+
+// When a station is selected, auto-fill open/close times
+function onStationSelect() {
+  const sel = document.getElementById('shift-station');
+  const opt = sel.options[sel.selectedIndex];
+  const open = opt.dataset.open;
+  const close = opt.dataset.close;
+  if (open) document.getElementById('shift-start').value = open;
+  if (close) document.getElementById('shift-end').value = close;
 }
 
 async function publishSchedule(scheduleId) {

@@ -44,6 +44,11 @@ Router.add('/admin/schedule/:id', (app, params) => {
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderScheduleDetail(app, params);
 });
+Router.add('/admin/stations', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderAdminStations(app);
+});
 Router.add('/admin/employees', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
   if (!API.isAdmin()) return Router.navigate('/', true);

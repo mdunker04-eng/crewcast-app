@@ -89,10 +89,10 @@ const UI = {
   // Bottom navigation for admin
   adminNav(active) {
     const tabs = [
-      { id: 'dashboard', icon: SVG.grid, label: 'Dashboard', path: '/admin' },
+      { id: 'dashboard', icon: SVG.grid, label: 'Home', path: '/admin' },
+      { id: 'stations', icon: SVG.station, label: 'Stations', path: '/admin/stations' },
       { id: 'schedules', icon: SVG.calendar, label: 'Schedules', path: '/admin/schedules' },
-      { id: 'employees', icon: SVG.users, label: 'Employees', path: '/admin/employees' },
-      { id: 'swaps', icon: SVG.swap, label: 'Swaps', path: '/swaps' },
+      { id: 'employees', icon: SVG.users, label: 'Team', path: '/admin/employees' },
     ];
     return `
       <nav class="bottom-nav">
@@ -143,4 +143,5 @@ const SVG = {
   chevRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>',
   logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
   send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>',
+  station: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h1"/><path d="M9 13h1"/><path d="M9 17h1"/></svg>',
 };

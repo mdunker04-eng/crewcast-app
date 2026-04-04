@@ -37,6 +37,7 @@ app.use('/api/schedules', require('./routes/schedules'));
 app.use('/api/availability', require('./routes/availability'));
 app.use('/api/swaps', require('./routes/swaps'));
 app.use('/api/push', require('./routes/push'));
+app.use('/api/stations', require('./routes/stations'));
 
 // ── Demo dashboard ──
 app.get('/demo', (req, res) => {

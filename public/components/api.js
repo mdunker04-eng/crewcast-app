@@ -91,4 +91,12 @@ const API = {
   getVapidKey: () => API.get('/api/push/vapid-key'),
   subscribePush: (subscription) => API.post('/api/push/subscribe', { subscription }),
   sendPush: (data) => API.post('/api/push/send', data),
+
+  // ── Stations ──
+  getStations: () => API.get('/api/stations'),
+  getDefaultStations: () => API.get('/api/stations/defaults'),
+  addStation: (data) => API.post('/api/stations', data),
+  bulkAddStations: (stations) => API.post('/api/stations/bulk', { stations }),
+  updateStation: (id, data) => API.put(`/api/stations/${id}`, data),
+  deleteStation: (id) => API.delete(`/api/stations/${id}`),
 };

@@ -103,6 +103,21 @@ async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
+      -- Stations (staffed areas/activities)
+      CREATE TABLE IF NOT EXISTS stations (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        name TEXT NOT NULL,
+        description TEXT,
+        open_time TEXT DEFAULT '09:00',
+        close_time TEXT DEFAULT '17:00',
+        arrive_early_minutes INTEGER DEFAULT 15,
+        active BOOLEAN DEFAULT true,
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(business_id, name)
+      );
+
       -- Sessions (auth tokens)
       CREATE TABLE IF NOT EXISTS sessions (
         id SERIAL PRIMARY KEY,
