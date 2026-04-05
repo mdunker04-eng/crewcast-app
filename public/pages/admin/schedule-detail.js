@@ -106,7 +106,7 @@ async function renderScheduleDetail(app, params) {
 
       ${total > 0 ? `
         <!-- Progress Rings -->
-        <div class="card mb-4" style="display:flex;justify-content:space-around;align-items:center;padding:20px 12px">
+        <div class="card mb-4 ring-row" style="display:flex;justify-content:space-around;align-items:center;padding:20px 12px;flex-wrap:wrap;gap:12px">
           ${progressRing(confirmedPct, 'green', 'Confirmed', confirmed)}
           ${progressRing(pendingPct, 'amber', 'Pending', pending)}
           ${progressRing(declinedPct, 'red', 'Declined', declined)}

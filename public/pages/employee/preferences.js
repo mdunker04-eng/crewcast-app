@@ -62,7 +62,7 @@ function renderPrefUI() {
           <div class="semi text-sm">${st.name}</div>
           ${st.description ? `<div class="text-xs text-muted">${st.description}</div>` : ''}
         </div>
-        <div class="flex gap-1">
+        <div class="flex gap-1 pref-actions">
           ${idx > 0 ? `<button class="btn btn-ghost btn-sm" style="padding:4px 6px" onclick="prefMove(${idx},-1)">${SVG.chevLeft.replace('15,18 9,12 15,6', '12,6 12,18').replace('polyline', 'polyline').replace('15,18 9,12 15,6', '6,15 12,9 18,15')}<span style="font-size:10px">Up</span></button>` : '<span style="width:40px"></span>'}
           ${idx < prefRanked.length - 1 ? `<button class="btn btn-ghost btn-sm" style="padding:4px 6px" onclick="prefMove(${idx},1)"><span style="font-size:10px">Down</span></button>` : '<span style="width:50px"></span>'}
           <button class="btn btn-ghost btn-sm" style="padding:4px 6px;color:var(--red)" onclick="prefRemove(${idx})">${SVG.x}</button>

@@ -361,9 +361,51 @@ select.form-input { appearance: none; cursor: pointer; }
 .hidden { display: none !important; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ── Mobile: 4-col grid collapses to 2x2 ── */
-@media (max-width: 400px) {
+/* ═══════════════════════════════════════════════════════
+   Mobile Responsive (phones ≤ 480px)
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  /* Stat grids: 3- and 4-col → 2 columns */
+  .stat-grid-3 { grid-template-columns: repeat(2, 1fr); }
   .stat-grid-4 { grid-template-columns: repeat(2, 1fr); }
+
+  /* Calendar: tighter cells on small screens */
+  .calendar-grid { gap: 2px; }
+  .calendar-day { font-size: 11px; border-radius: 6px; }
+  .calendar-day-label { font-size: 9px; }
+
+  /* Progress rings: smaller on phones */
+  .ring { width: 58px; height: 58px; }
+  .ring-inner { width: 42px; height: 42px; font-size: 13px; }
+
+  /* Buttons: bigger touch targets */
+  .btn { padding: 12px 18px; min-height: 44px; }
+  .btn-sm { padding: 8px 14px; min-height: 36px; font-size: 12px; }
+  .btn-group { flex-wrap: wrap; }
+
+  /* Cards tighter padding */
+  .card { padding: 14px; }
+  .shift-card { padding: 12px; }
+
+  /* Coverage bar: flexible width */
+  .cbar { width: 100%; min-width: 60px; }
+
+  /* Headings slightly smaller */
+  h1 { font-size: 20px; }
+  .stat-value { font-size: 20px; }
+
+  /* Demo grids collapse */
+  .grid2 { grid-template-columns: 1fr; }
+  .grid3, .grid4, .grid5 { grid-template-columns: 1fr 1fr; }
+
+  /* Tables scroll horizontally */
+  .admin-main table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Preferences rank buttons: wrap */
+  .pref-actions { flex-wrap: wrap; gap: 4px; }
+
+  /* Modal full-width on small screens */
+  .modal { max-width: none; border-radius: 12px; padding: 16px; }
 }
 
 /* ═══════════════════════════════════════════════════════
