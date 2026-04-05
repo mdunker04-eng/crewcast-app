@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════
 
 async function renderAdminDashboard(app) {
-  app.innerHTML = `
+  app.innerHTML = UI.adminShell('dashboard', `
     <div class="page">
       <div class="page-header flex justify-between items-center">
         <div>
@@ -14,8 +14,7 @@ async function renderAdminDashboard(app) {
       </div>
       <div id="admin-content">${UI.loading()}</div>
     </div>
-    ${UI.adminNav('dashboard')}
-  `;
+  `);
 
   try {
     const [schedules, employees, swaps] = await Promise.all([

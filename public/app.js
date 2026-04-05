@@ -55,6 +55,30 @@ Router.add('/admin/employees', (app) => {
   renderAdminEmployees(app);
 });
 
+// Demo feature views (all require admin)
+const demoRoutes = [
+  ['/admin/demo/dashboard', renderDemoDashboard],
+  ['/admin/demo/crowdpulse', renderDemoCrowdPulse],
+  ['/admin/demo/stations', renderDemoStationView],
+  ['/admin/demo/coverage', renderDemoCoverage],
+  ['/admin/demo/storm', renderDemoStorm],
+  ['/admin/demo/replacement', renderDemoReplacement],
+  ['/admin/demo/cascade', renderDemoCascade],
+  ['/admin/demo/swaps', renderDemoSwaps],
+  ['/admin/demo/sms', renderDemoSms],
+  ['/admin/demo/costs', renderDemoCosts],
+  ['/admin/demo/alerts', renderDemoAlerts],
+  ['/admin/demo/roster', renderDemoRoster],
+  ['/admin/demo/employee', renderDemoEmployee],
+];
+demoRoutes.forEach(([path, handler]) => {
+  Router.add(path, (app) => {
+    if (!API.isLoggedIn()) return Router.navigate('/login', true);
+    if (!API.isAdmin()) return Router.navigate('/', true);
+    handler(app);
+  });
+});
+
 // ── Initialize router ──
 Router.init();
 

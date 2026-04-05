@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════
 
 async function renderAdminEmployees(app) {
-  app.innerHTML = `
+  app.innerHTML = UI.adminShell('employees', `
     <div class="page">
       <div class="page-header flex justify-between items-center">
         <div>
@@ -14,8 +14,7 @@ async function renderAdminEmployees(app) {
       </div>
       <div id="employees-content">${UI.loading()}</div>
     </div>
-    ${UI.adminNav('employees')}
-  `;
+  `);
 
   try {
     const employees = await API.getEmployees();

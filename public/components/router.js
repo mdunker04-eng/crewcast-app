@@ -23,6 +23,9 @@ const Router = {
     const path = location.pathname;
     const app = document.getElementById('app');
 
+    // Clear admin mode class — admin pages re-add it via UI.adminShell()
+    document.body.classList.remove('admin-mode');
+
     for (const route of this.routes) {
       const match = this.matchPath(route.path, path);
       if (match) {

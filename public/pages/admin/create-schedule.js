@@ -7,7 +7,7 @@ let _calendarYear = null;
 let _selectedDates = new Set();
 
 async function renderAdminSchedules(app) {
-  app.innerHTML = `
+  app.innerHTML = UI.adminShell('schedules', `
     <div class="page">
       <div class="page-header flex justify-between items-center">
         <div>
@@ -18,8 +18,7 @@ async function renderAdminSchedules(app) {
       </div>
       <div id="schedules-content">${UI.loading()}</div>
     </div>
-    ${UI.adminNav('schedules')}
-  `;
+  `);
 
   try {
     const schedules = await API.getSchedules();

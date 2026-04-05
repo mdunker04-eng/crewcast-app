@@ -86,7 +86,7 @@ const UI = {
     `;
   },
 
-  // Bottom navigation for admin
+  // Bottom navigation for admin (mobile fallback)
   adminNav(active) {
     const tabs = [
       { id: 'dashboard', icon: SVG.grid, label: 'Home', path: '/admin' },
@@ -103,6 +103,67 @@ const UI = {
           </button>
         `).join('')}
       </nav>
+    `;
+  },
+
+  // Admin sidebar (desktop) — wraps the entire admin page
+  adminSidebar(active) {
+    const businessName = (API.user && API.user.businessName) || 'CrewCast';
+    const items = [
+      { section: 'Admin' },
+      { id: 'dashboard', icon: SVG.grid, label: 'Dashboard', path: '/admin' },
+      { id: 'stations', icon: SVG.station, label: 'Stations', path: '/admin/stations' },
+      { id: 'schedules', icon: SVG.calendar, label: 'Schedules', path: '/admin/schedules' },
+      { id: 'employees', icon: SVG.users, label: 'Employees', path: '/admin/employees' },
+      { section: 'Schedule' },
+      { id: 'demo-dashboard', icon: '📊', label: 'Dashboard', path: '/admin/demo/dashboard' },
+      { id: 'demo-crowdpulse', icon: '🎯', label: 'CrowdPulse', path: '/admin/demo/crowdpulse' },
+      { id: 'demo-stations', icon: '🏗️', label: 'Station View', path: '/admin/demo/stations' },
+      { id: 'demo-coverage', icon: '📈', label: 'Coverage Grid', path: '/admin/demo/coverage' },
+      { section: 'Actions' },
+      { id: 'demo-storm', icon: '🌧️', label: 'Storm Mode', path: '/admin/demo/storm', style: 'color:#F87171' },
+      { id: 'demo-replacement', icon: '⚡', label: 'Auto-Replace', path: '/admin/demo/replacement', badge: '3' },
+      { id: 'demo-cascade', icon: '🎬', label: 'Live Demo', path: '/admin/demo/cascade' },
+      { id: 'demo-swaps', icon: '🔄', label: 'Shift Swaps', path: '/admin/demo/swaps' },
+      { id: 'demo-sms', icon: '📱', label: 'SMS Center', path: '/admin/demo/sms' },
+      { section: 'Insights' },
+      { id: 'demo-costs', icon: '💰', label: 'Cost of Gaps', path: '/admin/demo/costs' },
+      { id: 'demo-alerts', icon: '🚨', label: 'Alerts', path: '/admin/demo/alerts', badge: '5' },
+      { section: 'Team' },
+      { id: 'demo-roster', icon: '👥', label: 'Roster (60)', path: '/admin/demo/roster' },
+      { id: 'demo-employee', icon: '👤', label: 'Employee View', path: '/admin/demo/employee' },
+    ];
+
+    return `
+      <div class="admin-sidebar">
+        <div class="sidebar-logo">
+          <h2>🌾 CrewCast</h2>
+          <div class="sub">${businessName}</div>
+        </div>
+        ${items.map(item => {
+          if (item.section) return `<div class="nav-section">${item.section}</div>`;
+          if (item.divider) return `<div class="sidebar-divider"></div>`;
+          const cls = active === item.id ? 'sidebar-item active' : 'sidebar-item';
+          const style = item.style ? ` style="${item.style}"` : '';
+          const badge = item.badge ? `<span class="nav-badge">${item.badge}</span>` : '';
+          if (item.external) {
+            return `<a class="${cls}"${style} href="${item.path}" target="_blank">${item.icon} ${item.label}${badge}</a>`;
+          }
+          return `<div class="${cls}"${style} onclick="Router.navigate('${item.path}')">${item.icon} ${item.label}${badge}</div>`;
+        }).join('')}
+      </div>
+    `;
+  },
+
+  // Wrap an admin page with sidebar + bottom nav
+  adminShell(active, pageContent) {
+    document.body.classList.add('admin-mode');
+    return `
+      ${this.adminSidebar(active)}
+      <div class="admin-main">
+        ${pageContent}
+        ${this.adminNav(active)}
+      </div>
     `;
   },
 
@@ -144,4 +205,5 @@ const SVG = {
   logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
   send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>',
   station: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h1"/><path d="M9 13h1"/><path d="M9 17h1"/></svg>',
+  demo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
 };

@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════
 
 async function renderAdminStations(app) {
-  app.innerHTML = `
+  app.innerHTML = UI.adminShell('stations', `
     <div class="page">
       <div class="page-header flex justify-between items-center">
         <div>
@@ -14,8 +14,7 @@ async function renderAdminStations(app) {
       </div>
       <div id="stations-content">${UI.loading()}</div>
     </div>
-    ${UI.adminNav('stations')}
-  `;
+  `);
 
   await loadStations();
 }

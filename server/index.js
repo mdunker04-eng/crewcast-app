@@ -39,6 +39,11 @@ app.use('/api/swaps', require('./routes/swaps'));
 app.use('/api/push', require('./routes/push'));
 app.use('/api/stations', require('./routes/stations'));
 
+// ── Demo page ──
+app.get('/demo', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'demo.html'));
+});
+
 // ── Invite link handler ──
 // Serves the frontend, which reads the invite token from the URL
 app.get('/invite/:token', (req, res) => {

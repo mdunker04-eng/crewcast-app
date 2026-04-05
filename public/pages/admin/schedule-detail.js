@@ -61,7 +61,7 @@ function buildStationCoverage(shifts) {
 async function renderScheduleDetail(app, params) {
   const scheduleId = params.id;
 
-  app.innerHTML = `
+  app.innerHTML = UI.adminShell('schedules', `
     <div class="page">
       <div class="page-header flex justify-between items-center">
         <button class="btn btn-ghost btn-sm" onclick="Router.navigate('/admin/schedules')">${SVG.chevLeft} Back</button>
@@ -69,8 +69,7 @@ async function renderScheduleDetail(app, params) {
       </div>
       <div id="schedule-detail">${UI.loading()}</div>
     </div>
-    ${UI.adminNav('schedules')}
-  `;
+  `);
 
   try {
     const { schedule, shifts } = await API.getShifts(scheduleId);
