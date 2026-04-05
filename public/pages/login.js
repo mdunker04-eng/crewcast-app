@@ -57,6 +57,9 @@ async function handleLogin() {
     API.setAuth(data.token, data.user);
     UI.toast(`Welcome, ${data.user.firstName}!`);
 
+    // Load feature flags for nav visibility
+    try { API.features = await API.getFeatures(); } catch (e) { API.features = {}; }
+
     // Route to correct page based on role
     if (data.user.role === 'admin' || data.user.role === 'owner') {
       Router.navigate('/admin', true);

@@ -3,7 +3,7 @@
 // Caching + Push Notifications
 // ═══════════════════════════════════════════════════════
 
-const CACHE_NAME = 'crewcast-v9';
+const CACHE_NAME = 'crewcast-v10';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

@@ -30,10 +30,14 @@ Router.add('/availability', (app) => {
 });
 Router.add('/swaps', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  const f = API.features || {};
+  if (f.allowSwaps === false) return Router.navigate('/', true);
   renderEmployeeSwaps(app);
 });
 Router.add('/preferences', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  const f = API.features || {};
+  if (f.employeeRankStations === false) return Router.navigate('/', true);
   renderPreferences(app);
 });
 
@@ -100,6 +104,11 @@ demoRoutes.forEach(([path, handler]) => {
 
 // ── Initialize router ──
 Router.init();
+
+// ── Load feature flags (for returning sessions) ──
+if (API.isLoggedIn()) {
+  API.getFeatures().then(f => { API.features = f; }).catch(() => { API.features = {}; });
+}
 
 // ── PWA Install Prompt ──
 let deferredInstallPrompt = null;

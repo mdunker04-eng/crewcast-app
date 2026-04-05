@@ -337,9 +337,11 @@ async function showAutoFillModal(scheduleId) {
 
   // Load preference setting
   let usePreferences = true;
+  let prefsFeatureEnabled = true;
   try {
     const settings = await API.getSettings();
     if (settings.usePreferences === false) usePreferences = false;
+    if (settings.employeeRankStations === false) { prefsFeatureEnabled = false; usePreferences = false; }
   } catch (e) {}
 
   const totalNeeded = stations.reduce((sum, s) => sum + (s.staff_needed || 0), 0);
@@ -389,7 +391,7 @@ async function showAutoFillModal(scheduleId) {
       </div>
     </div>
 
-    <div class="card mb-3" style="background:var(--bg-primary);padding:12px">
+    ${prefsFeatureEnabled ? `<div class="card mb-3" style="background:var(--bg-primary);padding:12px">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
         <input type="checkbox" id="af-use-prefs" ${usePreferences ? 'checked' : ''}
           onchange="togglePreferenceMatching(this.checked)"
@@ -399,7 +401,7 @@ async function showAutoFillModal(scheduleId) {
           <div class="text-xs text-muted">Prioritize stations employees ranked higher when assigning</div>
         </div>
       </label>
-    </div>
+    </div>` : ''}
 
     <p class="text-xs text-muted">Employees are scored by training + preference rank. You can adjust assignments after generating.</p>
   `, `

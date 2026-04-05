@@ -68,13 +68,14 @@ const UI = {
 
   // Bottom navigation for employees
   employeeNav(active) {
+    const f = API.features || {};
     const tabs = [
       { id: 'home', icon: SVG.home, label: 'Home', path: '/' },
       { id: 'schedule', icon: SVG.calendar, label: 'Schedule', path: '/schedule' },
       { id: 'availability', icon: SVG.clock, label: 'Availability', path: '/availability' },
-      { id: 'swaps', icon: SVG.swap, label: 'Swaps', path: '/swaps' },
-      { id: 'preferences', icon: SVG.star, label: 'Prefs', path: '/preferences' },
-    ];
+      f.allowSwaps !== false ? { id: 'swaps', icon: SVG.swap, label: 'Swaps', path: '/swaps' } : null,
+      f.employeeRankStations !== false ? { id: 'preferences', icon: SVG.star, label: 'Prefs', path: '/preferences' } : null,
+    ].filter(Boolean);
     return `
       <nav class="bottom-nav">
         ${tabs.map(t => `

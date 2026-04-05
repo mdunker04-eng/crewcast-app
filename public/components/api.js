@@ -104,6 +104,7 @@ const API = {
   // ── Business Settings ──
   getSettings: () => API.get('/api/stations/settings'),
   updateSettings: (data) => API.put('/api/stations/settings', data),
+  getFeatures: () => API.get('/api/stations/features'),
 
   // ── Stations ──
   getStations: () => API.get('/api/stations'),

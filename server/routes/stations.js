@@ -157,6 +157,26 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
 // BUSINESS SETTINGS (stored in businesses.settings JSON column)
 // ══════════════════════════════════════
 
+// ── GET /api/stations/features (public feature flags for employees) ──
+router.get('/features', authenticate, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT settings FROM businesses WHERE id = $1',
+      [req.user.businessId]
+    );
+    const s = JSON.parse(rows[0]?.settings || '{}');
+    res.json({
+      allowSwaps: s.allowSwaps !== false,
+      employeeRankStations: s.employeeRankStations !== false,
+      employeeSetAvailability: s.employeeSetAvailability !== false,
+      employeeRequestDaysOff: s.employeeRequestDaysOff || false,
+    });
+  } catch (err) {
+    console.error('Get features error:', err);
+    res.json({ allowSwaps: true, employeeRankStations: true, employeeSetAvailability: true });
+  }
+});
+
 // ── GET /api/stations/settings ──
 router.get('/settings', authenticate, requireAdmin, async (req, res) => {
   try {
