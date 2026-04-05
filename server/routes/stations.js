@@ -50,9 +50,24 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // ── GET /api/stations/defaults ──
-// Get the pre-populated default station list (no auth needed for setup)
-router.get('/defaults', authenticate, (req, res) => {
-  res.json(DEFAULT_STATIONS);
+// Get the pre-populated default station list
+// Returns Center Grove defaults for that business, empty array for others
+router.get('/defaults', authenticate, async (req, res) => {
+  try {
+    // Check if this is the Center Grove business
+    const { rows } = await pool.query(
+      'SELECT slug FROM businesses WHERE id = $1',
+      [req.user.businessId]
+    );
+    const slug = rows[0]?.slug || '';
+    if (slug === 'center-grove' || slug === 'centergrovecider') {
+      return res.json(DEFAULT_STATIONS);
+    }
+    // Other businesses get an empty list — they'll use the blank setup
+    res.json([]);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 // ── POST /api/stations ──

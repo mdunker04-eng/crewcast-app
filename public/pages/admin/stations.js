@@ -25,21 +25,46 @@ async function loadStations() {
     const stations = await API.getStations();
 
     if (stations.length === 0) {
-      // Show the setup wizard — pre-populated defaults
-      document.getElementById('stations-content').innerHTML = `
-        <div class="card">
-          <div class="card-title mb-2">Quick Setup</div>
-          <p class="text-sm text-muted mb-3">We found these stations from Center Grove Orchard. Select the ones you use, then customize times and arrival settings.</p>
-          <div id="default-stations-list">${UI.loading()}</div>
-          <div class="btn-group mt-3">
-            <button class="btn btn-primary btn-block" onclick="importSelectedStations()">Add Selected Stations</button>
+      // Check if we have pre-populated defaults for this business
+      let defaults = [];
+      try { defaults = await API.getDefaultStations(); } catch (e) {}
+
+      if (defaults.length > 0) {
+        // Pre-populated setup (e.g. Center Grove)
+        document.getElementById('stations-content').innerHTML = `
+          <div class="card">
+            <div class="card-title mb-2">Quick Setup</div>
+            <p class="text-sm text-muted mb-3">We found these stations for your business. Select the ones you use, then customize times and arrival settings.</p>
+            <div id="default-stations-list">${UI.loading()}</div>
+            <div class="btn-group mt-3">
+              <button class="btn btn-primary btn-block" onclick="importSelectedStations()">Add Selected Stations</button>
+            </div>
+            <div class="text-center mt-3">
+              <button class="btn btn-ghost btn-sm" onclick="showAddStationModal()">Or add a custom station</button>
+            </div>
           </div>
-          <div class="text-center mt-3">
-            <button class="btn btn-ghost btn-sm" onclick="showAddStationModal()">Or add a custom station</button>
+        `;
+        loadDefaultStations();
+      } else {
+        // Blank setup for new clients
+        document.getElementById('stations-content').innerHTML = `
+          <div class="card">
+            <div class="card-title mb-2">Set Up Your Stations</div>
+            <p class="text-sm text-muted mb-3">Enter the areas or activities your staff work at. You can add them one at a time or paste a list.</p>
+
+            <div class="form-group">
+              <label class="form-label">Quick Add — Paste a List</label>
+              <textarea id="bulk-station-text" class="form-input" rows="6" placeholder="Enter one station per line, e.g.:&#10;Front Gate&#10;Food Court&#10;Gift Shop&#10;Parking&#10;Main Stage"></textarea>
+            </div>
+            <button class="btn btn-primary btn-block mb-3" onclick="bulkAddFromText()">Add All Stations</button>
+
+            <div class="text-center">
+              <span class="text-xs text-muted">— or —</span>
+            </div>
+            <button class="btn btn-secondary btn-block mt-3" onclick="showAddStationModal()">Add One Station</button>
           </div>
-        </div>
-      `;
-      loadDefaultStations();
+        `;
+      }
       return;
     }
 
@@ -320,6 +345,32 @@ async function deleteStation(id, name) {
   try {
     await API.deleteStation(id);
     UI.toast('Station removed');
+    await loadStations();
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
+}
+
+// Bulk add stations from a text list (one per line)
+async function bulkAddFromText() {
+  const text = document.getElementById('bulk-station-text').value.trim();
+  if (!text) { UI.toast('Enter at least one station name', 'error'); return; }
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length === 0) { UI.toast('Enter at least one station name', 'error'); return; }
+
+  const stations = lines.map(name => ({
+    name,
+    description: '',
+    openTime: '09:00',
+    closeTime: '17:00',
+    arriveEarlyMinutes: 15,
+    staffNeeded: 5,
+  }));
+
+  try {
+    const result = await API.bulkAddStations(stations);
+    UI.toast(`Added ${result.added} stations!${result.skipped ? ` (${result.skipped} duplicates skipped)` : ''}`);
     await loadStations();
   } catch (err) {
     UI.toast(err.message, 'error');
