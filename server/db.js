@@ -119,6 +119,17 @@ async function initDB() {
         UNIQUE(business_id, name)
       );
 
+      -- Employee Station Skills (which stations an employee is trained for)
+      CREATE TABLE IF NOT EXISTS employee_stations (
+        id SERIAL PRIMARY KEY,
+        employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        station_id INTEGER NOT NULL REFERENCES stations(id) ON DELETE CASCADE,
+        skill_level TEXT DEFAULT 'trained',
+        preferred BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(employee_id, station_id)
+      );
+
       -- Sessions (auth tokens)
       CREATE TABLE IF NOT EXISTS sessions (
         id SERIAL PRIMARY KEY,

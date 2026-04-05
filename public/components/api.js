@@ -92,6 +92,11 @@ const API = {
   subscribePush: (subscription) => API.post('/api/push/subscribe', { subscription }),
   sendPush: (data) => API.post('/api/push/send', data),
 
+  // ── Employee-Station Skills ──
+  getEmployeeStations: (empId) => API.get(`/api/employees/${empId}/stations`),
+  updateEmployeeStations: (empId, stationIds) => API.put(`/api/employees/${empId}/stations`, { stationIds }),
+  getEmployeesByStation: (stationId) => API.get(`/api/employees/by-station/${stationId}`),
+
   // ── Stations ──
   getStations: () => API.get('/api/stations'),
   getDefaultStations: () => API.get('/api/stations/defaults'),

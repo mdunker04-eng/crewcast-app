@@ -17,6 +17,13 @@ async function renderEmployeeSchedule(app) {
   try {
     const shifts = await API.getMyShifts();
 
+    // Load station data for arrive-early display
+    try {
+      const stations = await API.getStations();
+      window._stationMap = {};
+      stations.forEach(s => { window._stationMap[s.name] = s; });
+    } catch (e) { window._stationMap = {}; }
+
     if (shifts.length === 0) {
       document.getElementById('schedule-content').innerHTML = UI.empty(
         '📅', 'No upcoming shifts', 'You\'ll see your shifts here when a schedule is published'
@@ -39,7 +46,21 @@ async function renderEmployeeSchedule(app) {
             <div class="flex justify-between items-center">
               <div>
                 <div class="shift-time semi">${UI.formatTime(s.start_time)} - ${UI.formatTime(s.end_time)}</div>
-                ${s.station ? `<div class="shift-station">Station: ${s.station}</div>` : ''}
+                ${s.station ? `<div class="shift-station">${SVG.station} ${s.station}</div>` : ''}
+                ${(() => {
+                  if (s.station && window._stationMap && window._stationMap[s.station]) {
+                    const early = window._stationMap[s.station].arrive_early_minutes;
+                    if (early > 0) {
+                      const [h, m] = s.start_time.split(':').map(Number);
+                      const totalMin = h * 60 + m - early;
+                      const arrH = Math.floor(totalMin / 60);
+                      const arrM = totalMin % 60;
+                      const arrTime = UI.formatTime(String(arrH).padStart(2, '0') + ':' + String(arrM).padStart(2, '0'));
+                      return '<div class="text-xs text-amber mt-1">⏰ Arrive by ' + arrTime + ' (' + early + ' min early)</div>';
+                    }
+                  }
+                  return '';
+                })()}
                 ${s.notes ? `<div class="text-xs text-muted mt-2">${s.notes}</div>` : ''}
               </div>
               ${UI.statusBadge(s.status)}

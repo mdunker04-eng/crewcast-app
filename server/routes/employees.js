@@ -188,4 +188,80 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════
+// EMPLOYEE-STATION SKILLS
+// ══════════════════════════════════════
+
+// ── GET /api/employees/:id/stations ──
+// Get which stations an employee is trained for
+router.get('/:id/stations', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT es.*, s.name as station_name
+      FROM employee_stations es
+      JOIN stations s ON es.station_id = s.id
+      WHERE es.employee_id = $1
+      ORDER BY s.name
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Get employee stations error:', err);
+    res.status(500).json({ error: 'Failed to get employee stations' });
+  }
+});
+
+// ── PUT /api/employees/:id/stations ──
+// Update an employee's station assignments (replace all)
+router.put('/:id/stations', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { stationIds } = req.body; // array of { stationId, preferred }
+    if (!Array.isArray(stationIds)) {
+      return res.status(400).json({ error: 'Expected array of station assignments' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Remove existing
+      await client.query('DELETE FROM employee_stations WHERE employee_id = $1', [req.params.id]);
+      // Add new
+      for (const s of stationIds) {
+        await client.query(`
+          INSERT INTO employee_stations (employee_id, station_id, preferred)
+          VALUES ($1, $2, $3)
+        `, [req.params.id, s.stationId || s, s.preferred || false]);
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    res.json({ success: true, count: stationIds.length });
+  } catch (err) {
+    console.error('Update employee stations error:', err);
+    res.status(500).json({ error: 'Failed to update employee stations' });
+  }
+});
+
+// ── GET /api/employees/by-station/:stationId ──
+// Get all employees trained for a specific station
+router.get('/by-station/:stationId', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT e.id, e.first_name, e.last_name, e.phone, es.preferred
+      FROM employee_stations es
+      JOIN employees e ON es.employee_id = e.id
+      WHERE es.station_id = $1 AND e.business_id = $2 AND e.active = true
+      ORDER BY es.preferred DESC, e.last_name
+    `, [req.params.stationId, req.user.businessId]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Get employees by station error:', err);
+    res.status(500).json({ error: 'Failed to get employees' });
+  }
+});
+
 module.exports = router;

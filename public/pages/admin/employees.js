@@ -145,6 +145,9 @@ function showEmployeeOptions(id, firstName, lastName, inviteToken, hasPin) {
   const inviteUrl = `${location.origin}/invite/${inviteToken}`;
   UI.showModal(`${firstName} ${lastName}`, `
     <div class="flex flex-col gap-2">
+      <button class="btn btn-primary btn-block" onclick="UI.closeModal();showStationSkillsModal(${id}, '${firstName} ${lastName}')">
+        ${SVG.station} Station Skills
+      </button>
       ${!hasPin ? `
         <button class="btn btn-secondary btn-block" onclick="copyInviteLink(this)" data-link="${inviteUrl}">
           Copy Invite Link
@@ -156,6 +159,57 @@ function showEmployeeOptions(id, firstName, lastName, inviteToken, hasPin) {
       <button class="btn btn-ghost btn-block" onclick="UI.closeModal()">Cancel</button>
     </div>
   `);
+}
+
+async function showStationSkillsModal(empId, empName) {
+  let stations = [];
+  let empStations = [];
+  try {
+    [stations, empStations] = await Promise.all([
+      API.getStations(),
+      API.getEmployeeStations(empId),
+    ]);
+  } catch (e) {
+    UI.toast('Could not load stations', 'error');
+    return;
+  }
+
+  const activeStations = stations.filter(s => s.active);
+  const assignedIds = new Set(empStations.map(es => es.station_id));
+
+  UI.showModal(`Stations — ${empName}`, `
+    <p class="text-sm text-muted mb-3">Check the stations this employee is trained to work at:</p>
+    <div class="flex gap-2 mb-2">
+      <button class="btn btn-ghost btn-sm" onclick="document.querySelectorAll('.emp-station-cb').forEach(c=>c.checked=true)">All</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.querySelectorAll('.emp-station-cb').forEach(c=>c.checked=false)">None</button>
+    </div>
+    <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">
+      ${activeStations.map(s => `
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;border-bottom:1px solid rgba(51,65,85,.2)">
+          <input type="checkbox" class="emp-station-cb" value="${s.id}"
+            ${assignedIds.has(s.id) ? 'checked' : ''}
+            style="width:16px;height:16px;accent-color:var(--purple)">
+          <span class="text-sm">${s.name}</span>
+        </label>
+      `).join('')}
+    </div>
+  `, `
+    <button class="btn btn-primary" onclick="saveStationSkills(${empId})">Save</button>
+    <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
+  `);
+}
+
+async function saveStationSkills(empId) {
+  const checked = document.querySelectorAll('.emp-station-cb:checked');
+  const stationIds = Array.from(checked).map(cb => parseInt(cb.value));
+
+  try {
+    await API.updateEmployeeStations(empId, stationIds);
+    UI.closeModal();
+    UI.toast('Station skills updated!');
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
 }
 
 async function deactivateEmployee(id, name) {
