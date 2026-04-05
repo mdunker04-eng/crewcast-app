@@ -97,6 +97,10 @@ const API = {
   updateEmployeeStations: (empId, stationIds) => API.put(`/api/employees/${empId}/stations`, { stationIds }),
   getEmployeesByStation: (stationId) => API.get(`/api/employees/by-station/${stationId}`),
 
+  // ── My Station Preferences (employee self-service) ──
+  getMyStationPrefs: () => API.get('/api/employees/me/station-preferences'),
+  setMyStationPrefs: (stations) => API.put('/api/employees/me/station-preferences', { stations }),
+
   // ── Stations ──
   getStations: () => API.get('/api/stations'),
   getDefaultStations: () => API.get('/api/stations/defaults'),

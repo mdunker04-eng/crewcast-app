@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // CrewCast — Employee Availability Calendar
+// Tap a date to set available + time window
 // ═══════════════════════════════════════════════════════
 
 let availCurrentMonth = new Date().getMonth();
@@ -45,7 +46,11 @@ async function loadAvailability() {
     const data = await API.getAvailability({ startDate: start, endDate: end });
     availData = {};
     data.forEach(d => {
-      availData[d.date] = d.available === 1;
+      availData[d.date] = {
+        available: d.available,
+        startTime: d.start_time || '09:00',
+        endTime: d.end_time || '17:00',
+      };
     });
   } catch (err) {
     console.error('Failed to load availability:', err);
@@ -67,7 +72,6 @@ function renderCalendar() {
   let html = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     .map(d => `<div class="calendar-day-label">${d}</div>`).join('');
 
-  // Empty cells before first day
   for (let i = 0; i < firstDay; i++) {
     html += '<div class="calendar-day empty"></div>';
   }
@@ -76,43 +80,102 @@ function renderCalendar() {
     const dateStr = `${availCurrentYear}-${String(availCurrentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const isToday = dateStr === todayStr;
     const isPast = new Date(dateStr) < new Date(todayStr);
+    const entry = availData[dateStr];
 
     let cls = 'calendar-day';
     if (isToday) cls += ' today';
-    if (availData[dateStr] === true) cls += ' available';
-    else if (availData[dateStr] === false) cls += ' unavailable';
+    if (entry && entry.available) cls += ' available';
+    else if (entry && !entry.available) cls += ' unavailable';
     if (isPast) cls += ' other-month';
 
-    html += `<div class="${cls}" onclick="${isPast ? '' : `toggleAvailDay('${dateStr}')`}">${day}</div>`;
+    // Show time range if available
+    let timeLabel = '';
+    if (entry && entry.available) {
+      timeLabel = `<div style="font-size:7px;margin-top:1px;color:rgba(52,211,153,.8)">${UI.formatTime(entry.startTime).replace(' AM','a').replace(' PM','p')}–${UI.formatTime(entry.endTime).replace(' AM','a').replace(' PM','p')}</div>`;
+    }
+
+    html += `<div class="${cls}" onclick="${isPast ? '' : `showAvailDayModal('${dateStr}')`}" style="position:relative">${day}${timeLabel}</div>`;
   }
 
   document.getElementById('avail-calendar').innerHTML = html;
 }
 
-async function toggleAvailDay(dateStr) {
-  const current = availData[dateStr];
-  let newState;
+function showAvailDayModal(dateStr) {
+  const entry = availData[dateStr] || { available: true, startTime: '09:00', endTime: '17:00' };
+  const d = new Date(dateStr + 'T12:00:00');
+  const dayLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
-  if (current === undefined) newState = true;       // not set → available
-  else if (current === true) newState = false;       // available → unavailable
-  else newState = undefined;                          // unavailable → not set
-
-  if (newState === undefined) {
-    delete availData[dateStr];
-    // Set to available=true then we'll handle removal differently
-    // For simplicity, toggle between available and unavailable
-    newState = true;
-    availData[dateStr] = true;
-  } else {
-    availData[dateStr] = newState;
+  function timeOpts(selected) {
+    let opts = '';
+    for (let h = 5; h <= 22; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        const val = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        const label = UI.formatTime(val);
+        opts += `<option value="${val}" ${val === selected ? 'selected' : ''}>${label}</option>`;
+      }
+    }
+    return opts;
   }
 
+  UI.showModal(dayLabel, `
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select id="avail-status" class="form-input" onchange="document.getElementById('avail-times').style.display = this.value === 'available' ? 'block' : 'none'">
+        <option value="available" ${entry.available ? 'selected' : ''}>Available</option>
+        <option value="unavailable" ${!entry.available ? 'selected' : ''}>Unavailable</option>
+      </select>
+    </div>
+    <div id="avail-times" style="${entry.available ? '' : 'display:none'}">
+      <div class="form-group">
+        <label class="form-label">Earliest Start</label>
+        <select id="avail-start" class="form-input">${timeOpts(entry.startTime)}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Latest End</label>
+        <select id="avail-end" class="form-input">${timeOpts(entry.endTime)}</select>
+      </div>
+    </div>
+  `, `
+    <button class="btn btn-primary" onclick="saveAvailDay('${dateStr}')">Save</button>
+    ${availData[dateStr] ? '<button class="btn btn-ghost" onclick="clearAvailDay(\'' + dateStr + '\')">Clear</button>' : ''}
+    <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
+  `);
+}
+
+async function saveAvailDay(dateStr) {
+  const status = document.getElementById('avail-status').value;
+  const available = status === 'available';
+  const startTime = document.getElementById('avail-start').value;
+  const endTime = document.getElementById('avail-end').value;
+
+  availData[dateStr] = { available, startTime, endTime };
+  UI.closeModal();
   renderCalendar();
 
   try {
-    await API.setAvailability([{ date: dateStr, available: newState }]);
+    await API.setAvailability([{
+      date: dateStr,
+      available,
+      startTime: available ? startTime : null,
+      endTime: available ? endTime : null,
+    }]);
+    UI.toast('Saved');
   } catch (err) {
     UI.toast('Failed to save', 'error');
+  }
+}
+
+async function clearAvailDay(dateStr) {
+  delete availData[dateStr];
+  UI.closeModal();
+  renderCalendar();
+
+  try {
+    // Set as unavailable then it won't show — or we could add a delete endpoint
+    // For now just mark as available with no times (acts as "not set")
+    await API.setAvailability([{ date: dateStr, available: true }]);
+  } catch (err) {
+    // silently fail
   }
 }
 

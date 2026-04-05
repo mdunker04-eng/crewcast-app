@@ -27,6 +27,10 @@ Router.add('/swaps', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
   renderEmployeeSwaps(app);
 });
+Router.add('/preferences', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  renderPreferences(app);
+});
 
 // Admin routes
 Router.add('/admin', (app) => {

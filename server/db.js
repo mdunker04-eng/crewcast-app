@@ -149,6 +149,11 @@ async function initDB() {
       ALTER TABLE shifts ADD COLUMN IF NOT EXISTS decline_reason TEXT
     `).catch(() => {});
 
+    // Add rank column to employee_stations for preference ordering
+    await client.query(`
+      ALTER TABLE employee_stations ADD COLUMN IF NOT EXISTS rank INTEGER DEFAULT 0
+    `).catch(() => {});
+
     console.log('Database schema initialized');
 
     // One-time migration: update staff_needed for stations that still have default=5

@@ -189,7 +189,62 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
 });
 
 // ══════════════════════════════════════
-// EMPLOYEE-STATION SKILLS
+// EMPLOYEE SELF-SERVICE: MY STATION PREFERENCES
+// (Must be before /:id routes so "me" isn't matched as :id)
+// ══════════════════════════════════════
+
+// ── GET /api/employees/me/station-preferences ──
+router.get('/me/station-preferences', authenticate, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT es.station_id, es.preferred, es.rank, s.name as station_name, s.description
+      FROM employee_stations es
+      JOIN stations s ON es.station_id = s.id
+      WHERE es.employee_id = $1
+      ORDER BY es.rank ASC, s.name
+    `, [req.user.id]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Get my station prefs error:', err);
+    res.status(500).json({ error: 'Failed to get station preferences' });
+  }
+});
+
+// ── PUT /api/employees/me/station-preferences ──
+router.put('/me/station-preferences', authenticate, async (req, res) => {
+  try {
+    const { stations } = req.body;
+    if (!Array.isArray(stations)) {
+      return res.status(400).json({ error: 'Expected array of station preferences' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM employee_stations WHERE employee_id = $1', [req.user.id]);
+      for (const s of stations) {
+        await client.query(`
+          INSERT INTO employee_stations (employee_id, station_id, preferred, rank)
+          VALUES ($1, $2, $3, $4)
+        `, [req.user.id, s.stationId, s.rank <= 3, s.rank]);
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    res.json({ success: true, count: stations.length });
+  } catch (err) {
+    console.error('Update my station prefs error:', err);
+    res.status(500).json({ error: 'Failed to update station preferences' });
+  }
+});
+
+// ══════════════════════════════════════
+// EMPLOYEE-STATION SKILLS (Admin)
 // ══════════════════════════════════════
 
 // ── GET /api/employees/:id/stations ──
