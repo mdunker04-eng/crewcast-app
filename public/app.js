@@ -58,6 +58,11 @@ Router.add('/admin/employees', (app) => {
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderAdminEmployees(app);
 });
+Router.add('/admin/settings', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderSettings(app);
+});
 
 // Demo feature views (all require admin)
 const demoRoutes = [

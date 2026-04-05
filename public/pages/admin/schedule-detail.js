@@ -335,6 +335,13 @@ async function showAutoFillModal(scheduleId) {
     return;
   }
 
+  // Load preference setting
+  let usePreferences = true;
+  try {
+    const settings = await API.getSettings();
+    if (settings.usePreferences === false) usePreferences = false;
+  } catch (e) {}
+
   const totalNeeded = stations.reduce((sum, s) => sum + (s.staff_needed || 0), 0);
 
   UI.showModal('Auto-Fill Shifts', `
@@ -382,7 +389,19 @@ async function showAutoFillModal(scheduleId) {
       </div>
     </div>
 
-    <p class="text-xs text-muted">Employees are assigned round-robin across stations. You can adjust assignments after generating.</p>
+    <div class="card mb-3" style="background:var(--bg-primary);padding:12px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="af-use-prefs" ${usePreferences ? 'checked' : ''}
+          onchange="togglePreferenceMatching(this.checked)"
+          style="width:18px;height:18px;accent-color:var(--purple)">
+        <div>
+          <div class="text-sm semi">Use Employee Preferences</div>
+          <div class="text-xs text-muted">Prioritize stations employees ranked higher when assigning</div>
+        </div>
+      </label>
+    </div>
+
+    <p class="text-xs text-muted">Employees are scored by training + preference rank. You can adjust assignments after generating.</p>
   `, `
     <button class="btn btn-primary" onclick="executeAutoFill(${scheduleId})">Generate Shifts</button>
     <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
@@ -416,51 +435,91 @@ async function executeAutoFill(scheduleId) {
   const checked = document.querySelectorAll('.af-station-cb:checked');
   if (checked.length === 0) { UI.toast('Select at least one station', 'error'); return; }
 
-  // Try to load station skill data for smarter assignment
-  let stationSkillMap = {}; // stationId -> [empId, empId, ...]
+  // Load business settings to check if preference matching is enabled
+  let usePreferences = true; // default ON
+  try {
+    const settings = await API.getSettings();
+    if (settings.usePreferences === false) usePreferences = false;
+  } catch (e) { /* settings not set yet, default to true */ }
+
+  // Load station skill + preference data for each station
+  // stationSkillMap: stationName -> [{ id, rank, preferred }]
+  let stationSkillMap = {};
   const allStations = window._autoFillStations || [];
   try {
     for (const s of allStations) {
       const trained = await API.getEmployeesByStation(s.id);
       if (trained.length > 0) {
-        stationSkillMap[s.name] = trained.map(t => t.id);
+        stationSkillMap[s.name] = trained.map(t => ({
+          id: t.id,
+          rank: t.rank || 0,
+          preferred: t.preferred || false,
+        }));
       }
     }
   } catch (e) { /* skills not set up yet, fall back to round-robin */ }
 
-  // Build shifts: prefer trained employees, then fill with round-robin
+  // Score an employee for a station (higher = better fit)
+  function scoreEmployee(emp, stationName) {
+    const trained = stationSkillMap[stationName] || [];
+    const match = trained.find(t => t.id === emp.id);
+    if (!match) return 0; // not trained for this station
+
+    let score = 10; // base score for being trained
+    if (usePreferences && match.rank > 0) {
+      // rank 1 = +100, rank 2 = +75, rank 3 = +50, rank 4+ = +25
+      if (match.rank === 1) score += 100;
+      else if (match.rank === 2) score += 75;
+      else if (match.rank === 3) score += 50;
+      else score += 25;
+    }
+    if (match.preferred) score += 15;
+    return score;
+  }
+
+  // Build shifts using preference-weighted scoring
   const shifts = [];
-  const usedEmployees = new Set(); // track who's already assigned
+  const usedEmployees = new Set();
   let empIndex = 0;
 
+  // Collect all station requests
+  const stationRequests = [];
   checked.forEach(cb => {
-    const stationName = cb.dataset.station;
-    const needed = parseInt(cb.dataset.needed) || 1;
-    const openTime = cb.dataset.open || '09:00';
-    const closeTime = cb.dataset.close || '17:00';
+    stationRequests.push({
+      name: cb.dataset.station,
+      needed: parseInt(cb.dataset.needed) || 1,
+      openTime: cb.dataset.open || '09:00',
+      closeTime: cb.dataset.close || '17:00',
+    });
+  });
 
-    // Get trained employees for this station
-    const trainedIds = stationSkillMap[stationName] || [];
+  // For each station, score all available employees and pick the best
+  stationRequests.forEach(station => {
     let assigned = 0;
 
-    // First: assign trained employees who aren't used yet
-    for (const trainedId of trainedIds) {
-      if (assigned >= needed) break;
-      if (!usedEmployees.has(trainedId)) {
-        shifts.push({ employeeId: trainedId, date, startTime: openTime, endTime: closeTime, station: stationName });
-        usedEmployees.add(trainedId);
+    // Score and sort employees for this station
+    const scored = emps
+      .filter(e => !usedEmployees.has(e.id))
+      .map(e => ({ emp: e, score: scoreEmployee(e, station.name) }))
+      .sort((a, b) => b.score - a.score); // highest score first
+
+    // Assign trained/preferred employees first (score > 0)
+    for (const { emp, score } of scored) {
+      if (assigned >= station.needed) break;
+      if (score > 0 && !usedEmployees.has(emp.id)) {
+        shifts.push({ employeeId: emp.id, date, startTime: station.openTime, endTime: station.closeTime, station: station.name });
+        usedEmployees.add(emp.id);
         assigned++;
       }
     }
 
-    // Then: fill remaining with round-robin from all employees
-    while (assigned < needed && emps.length > 0) {
+    // Fill remaining with round-robin from unassigned employees
+    while (assigned < station.needed && emps.length > 0) {
       const emp = emps[empIndex % emps.length];
       empIndex++;
-      // Allow double-assigning if we've gone through everyone
       if (empIndex > emps.length * 2) break;
       if (!usedEmployees.has(emp.id)) {
-        shifts.push({ employeeId: emp.id, date, startTime: openTime, endTime: closeTime, station: stationName });
+        shifts.push({ employeeId: emp.id, date, startTime: station.openTime, endTime: station.closeTime, station: station.name });
         usedEmployees.add(emp.id);
         assigned++;
       }
@@ -470,14 +529,23 @@ async function executeAutoFill(scheduleId) {
   try {
     await API.addShifts(scheduleId, shifts);
     UI.closeModal();
-    const trainedCount = Object.keys(stationSkillMap).length;
-    const msg = trainedCount > 0
-      ? `Generated ${shifts.length} shifts (skill-matched where possible)!`
-      : `Generated ${shifts.length} shifts across ${checked.length} stations!`;
+    const prefCount = usePreferences ? Object.values(stationSkillMap).reduce((sum, arr) => sum + arr.filter(t => t.rank > 0).length, 0) : 0;
+    let msg = `Generated ${shifts.length} shifts across ${checked.length} stations!`;
+    if (prefCount > 0) msg = `Generated ${shifts.length} shifts (preference-matched where possible)!`;
+    else if (Object.keys(stationSkillMap).length > 0) msg = `Generated ${shifts.length} shifts (skill-matched where possible)!`;
     UI.toast(msg);
     renderScheduleDetail(document.getElementById('app'), { id: scheduleId });
   } catch (err) {
     UI.toast(err.message, 'error');
+  }
+}
+
+async function togglePreferenceMatching(enabled) {
+  try {
+    await API.updateSettings({ usePreferences: enabled });
+    UI.toast(enabled ? 'Preference matching ON' : 'Preference matching OFF');
+  } catch (err) {
+    UI.toast('Failed to save setting', 'error');
   }
 }
 

@@ -3,7 +3,7 @@
 // Caching + Push Notifications
 // ═══════════════════════════════════════════════════════
 
-const CACHE_NAME = 'crewcast-v4';
+const CACHE_NAME = 'crewcast-v6';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -24,6 +24,7 @@ const STATIC_ASSETS = [
   '/pages/admin/create-schedule.js',
   '/pages/admin/schedule-detail.js',
   '/pages/admin/stations.js',
+  '/pages/admin/settings.js',
   '/pages/admin/demo-views.js',
   '/manifest.json',
 ];

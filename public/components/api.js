@@ -101,6 +101,10 @@ const API = {
   getMyStationPrefs: () => API.get('/api/employees/me/station-preferences'),
   setMyStationPrefs: (stations) => API.put('/api/employees/me/station-preferences', { stations }),
 
+  // ── Business Settings ──
+  getSettings: () => API.get('/api/stations/settings'),
+  updateSettings: (data) => API.put('/api/stations/settings', data),
+
   // ── Stations ──
   getStations: () => API.get('/api/stations'),
   getDefaultStations: () => API.get('/api/stations/defaults'),

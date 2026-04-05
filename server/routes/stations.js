@@ -153,6 +153,46 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════
+// BUSINESS SETTINGS (stored in businesses.settings JSON column)
+// ══════════════════════════════════════
+
+// ── GET /api/stations/settings ──
+router.get('/settings', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT settings FROM businesses WHERE id = $1',
+      [req.user.businessId]
+    );
+    const settings = JSON.parse(rows[0]?.settings || '{}');
+    res.json(settings);
+  } catch (err) {
+    console.error('Get settings error:', err);
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+});
+
+// ── PUT /api/stations/settings ──
+router.put('/settings', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT settings FROM businesses WHERE id = $1',
+      [req.user.businessId]
+    );
+    const existing = JSON.parse(rows[0]?.settings || '{}');
+    const merged = { ...existing, ...req.body };
+
+    await pool.query(
+      'UPDATE businesses SET settings = $1 WHERE id = $2',
+      [JSON.stringify(merged), req.user.businessId]
+    );
+    res.json(merged);
+  } catch (err) {
+    console.error('Update settings error:', err);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
 // ── PUT /api/stations/:id ──
 // Update a station (admin)
 router.put('/:id', authenticate, requireAdmin, async (req, res) => {

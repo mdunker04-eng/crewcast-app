@@ -306,11 +306,11 @@ router.put('/:id/stations', authenticate, requireAdmin, async (req, res) => {
 router.get('/by-station/:stationId', authenticate, requireAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT e.id, e.first_name, e.last_name, e.phone, es.preferred
+      SELECT e.id, e.first_name, e.last_name, e.phone, es.preferred, es.rank
       FROM employee_stations es
       JOIN employees e ON es.employee_id = e.id
       WHERE es.station_id = $1 AND e.business_id = $2 AND e.active = true
-      ORDER BY es.preferred DESC, e.last_name
+      ORDER BY es.rank ASC NULLS LAST, es.preferred DESC, e.last_name
     `, [req.params.stationId, req.user.businessId]);
     res.json(rows);
   } catch (err) {
