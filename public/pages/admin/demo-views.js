@@ -392,7 +392,9 @@ function renderDemoStationViewContent() {
             '<td><div class="flex gap1 flex-wrap">'+
               arr.map(a => {
                 const bgA = a.status==='confirmed'?'52,211,153':a.status==='pending'?'251,191,36':'239,68,68';
-                return '<span class="tag" style="background:rgba('+bgA+',.12);color:'+demoStatusColor(a.status)+';font-size:10px;padding:2px 6px">'+a.employee.firstName+' '+a.employee.lastName.charAt(0)+'. '+demoStatusIcon(a.status)+'</span>';
+                const fn = (a.employee && a.employee.firstName) || '?';
+                const ln = (a.employee && a.employee.lastName) || '';
+                return '<span class="tag" style="background:rgba('+bgA+',.12);color:'+demoStatusColor(a.status)+';font-size:10px;padding:2px 6px">'+fn+' '+(ln?ln.charAt(0)+'. ':'')+demoStatusIcon(a.status)+'</span>';
               }).join('')+
             '</div></td>'+
             '<td style="white-space:nowrap">'+demoCbar(active.length, need)+' <span class="text-xs">'+active.length+'/'+need+'</span></td>'+
@@ -507,7 +509,7 @@ function renderDemoReplacementContent() {
       return '<div class="card" style="border-color:rgba(239,68,68,.2)">'+
         '<div class="card-header"><div>'+
           '<div class="card-title">'+g.station.icon+' '+g.station.name+' — '+(g.day==='May 2'?'Saturday':'Sunday')+'</div>'+
-          '<div class="text-xs text-muted">'+g.declined.employee.firstName+' '+g.declined.employee.lastName+' declined: "'+g.declined.declineReason+'"</div>'+
+          '<div class="text-xs text-muted">'+(g.declined.employee?g.declined.employee.firstName+' '+(g.declined.employee.lastName||''):'Someone')+' declined: "'+g.declined.declineReason+'"</div>'+
         '</div><span class="badge badge-red">Open</span></div>'+
 
         '<div class="text-xs semi mb2">Top Replacement Candidates</div>'+
@@ -517,7 +519,7 @@ function renderDemoReplacementContent() {
             let stars = '';
             for(let s=0;s<5;s++) stars += s < Math.round(c.skill) ? '★' : '☆';
             return '<tr><td class="semi text-violet">#'+(i+1)+'</td>'+
-              '<td><div class="semi">'+c.employee.firstName+' '+c.employee.lastName+'</div><div class="text-xs text-muted">'+c.employee.phone+'</div></td>'+
+              '<td><div class="semi">'+(c.employee?c.employee.firstName+' '+(c.employee.lastName||''):'Unknown')+'</div><div class="text-xs text-muted">'+(c.employee?c.employee.phone:'')+'</div></td>'+
               '<td><span style="color:#FBBF24;font-size:10px">'+stars+'</span></td>'+
               '<td class="text-xs">'+c.reliability.toFixed(1)+'/5</td>'+
               '<td class="text-xs">'+(c.employee.years > 0 ? c.employee.years+' yr'+(c.employee.years>1?'s':'') : 'New')+'</td>'+
