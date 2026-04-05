@@ -6,6 +6,7 @@
 let availCurrentMonth = new Date().getMonth();
 let availCurrentYear = new Date().getFullYear();
 let availData = {};
+let availClipboard = null; // { available, startTime, endTime }
 
 async function renderAvailability(app) {
   app.innerHTML = `
@@ -137,9 +138,32 @@ function showAvailDayModal(dateStr) {
     </div>
   `, `
     <button class="btn btn-primary" onclick="saveAvailDay('${dateStr}')">Save</button>
+    <button class="btn btn-ghost" onclick="copyAvailDay('${dateStr}')" title="Copy this day's settings">📋 Copy</button>
+    ${availClipboard ? '<button class="btn btn-ghost" onclick="pasteAvailDay(\'' + dateStr + '\')" title="Paste copied settings">📌 Paste</button>' : ''}
     ${availData[dateStr] ? '<button class="btn btn-ghost" onclick="clearAvailDay(\'' + dateStr + '\')">Clear</button>' : ''}
     <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
   `);
+}
+
+function copyAvailDay(dateStr) {
+  const status = document.getElementById('avail-status').value;
+  availClipboard = {
+    available: status === 'available',
+    startTime: document.getElementById('avail-start').value,
+    endTime: document.getElementById('avail-end').value,
+  };
+  UI.closeModal();
+  UI.toast('Copied — tap another date and hit Paste');
+}
+
+function pasteAvailDay(dateStr) {
+  if (!availClipboard) return;
+  // Fill the form fields with clipboard values
+  document.getElementById('avail-status').value = availClipboard.available ? 'available' : 'unavailable';
+  document.getElementById('avail-times').style.display = availClipboard.available ? 'block' : 'none';
+  document.getElementById('avail-start').value = availClipboard.startTime;
+  document.getElementById('avail-end').value = availClipboard.endTime;
+  UI.toast('Pasted — hit Save to confirm');
 }
 
 async function saveAvailDay(dateStr) {
@@ -149,6 +173,7 @@ async function saveAvailDay(dateStr) {
   const endTime = document.getElementById('avail-end').value;
 
   availData[dateStr] = { available, startTime, endTime };
+  availClipboard = { available, startTime, endTime }; // auto-copy last saved
   UI.closeModal();
   renderCalendar();
 
