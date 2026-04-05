@@ -194,7 +194,7 @@ router.post('/:id/shifts', authenticate, requireAdmin, async (req, res) => {
 // Employee confirms or declines a shift
 router.put('/:scheduleId/shifts/:shiftId/respond', authenticate, async (req, res) => {
   try {
-    const { status, notes } = req.body;
+    const { status, notes, decline_reason } = req.body;
     if (!['confirmed', 'declined'].includes(status)) {
       return res.status(400).json({ error: 'Status must be confirmed or declined' });
     }
@@ -208,9 +208,10 @@ router.put('/:scheduleId/shifts/:shiftId/respond', authenticate, async (req, res
     if (rows.length === 0) return res.status(404).json({ error: 'Shift not found' });
 
     await pool.query(`
-      UPDATE shifts SET status = $1, notes = COALESCE($2, notes), responded_at = NOW()
-      WHERE id = $3
-    `, [status, notes || null, req.params.shiftId]);
+      UPDATE shifts SET status = $1, notes = COALESCE($2, notes),
+        decline_reason = $3, responded_at = NOW()
+      WHERE id = $4
+    `, [status, notes || null, status === 'declined' ? (decline_reason || null) : null, req.params.shiftId]);
 
     res.json({ success: true, status });
   } catch (err) {

@@ -70,8 +70,8 @@ const API = {
   deleteSchedule: (id) => API.delete(`/api/schedules/${id}`),
   getShifts: (scheduleId) => API.get(`/api/schedules/${scheduleId}/shifts`),
   addShifts: (scheduleId, shifts) => API.post(`/api/schedules/${scheduleId}/shifts`, { shifts }),
-  respondShift: (scheduleId, shiftId, status, notes) =>
-    API.put(`/api/schedules/${scheduleId}/shifts/${shiftId}/respond`, { status, notes }),
+  respondShift: (scheduleId, shiftId, status, notes, decline_reason) =>
+    API.put(`/api/schedules/${scheduleId}/shifts/${shiftId}/respond`, { status, notes, decline_reason }),
   getMyShifts: () => API.get('/api/schedules/my-shifts'),
 
   // ── Availability ──

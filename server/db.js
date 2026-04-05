@@ -144,6 +144,11 @@ async function initDB() {
       ALTER TABLE stations ADD COLUMN IF NOT EXISTS staff_needed INTEGER DEFAULT 5
     `).catch(() => {});
 
+    // Add decline_reason column to shifts (for tracking why employees declined)
+    await client.query(`
+      ALTER TABLE shifts ADD COLUMN IF NOT EXISTS decline_reason TEXT
+    `).catch(() => {});
+
     console.log('Database schema initialized');
 
     // One-time migration: update staff_needed for stations that still have default=5

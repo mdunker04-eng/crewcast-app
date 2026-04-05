@@ -122,7 +122,7 @@ function renderShiftCard(shift, showActions) {
       ${showActions && shift.status === 'pending' ? `
         <div class="shift-actions">
           <button class="btn btn-success btn-sm" onclick="respondToShift(${shift.schedule_id}, ${shift.id}, 'confirmed')">Confirm</button>
-          <button class="btn btn-danger btn-sm" onclick="respondToShift(${shift.schedule_id}, ${shift.id}, 'declined')">Can't Make It</button>
+          <button class="btn btn-danger btn-sm" onclick="showDeclineModal(${shift.schedule_id}, ${shift.id})">Can't Make It</button>
         </div>
       ` : ''}
     </div>

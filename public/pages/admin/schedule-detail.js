@@ -1,7 +1,62 @@
 // ═══════════════════════════════════════════════════════
 // CrewCast — Admin Schedule Detail
-// View shifts, add employees, publish
+// View shifts, add employees, publish — with coverage dashboard
 // ═══════════════════════════════════════════════════════
+
+function progressRing(pct, color, label, count) {
+  const c = color === 'green' ? '#34D399' : color === 'amber' ? '#FBBF24' : '#F87171';
+  const bg = 'rgba(51,65,85,.4)';
+  return `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="position:relative;width:64px;height:64px">
+        <div style="width:64px;height:64px;border-radius:50%;background:conic-gradient(${c} ${pct * 3.6}deg, ${bg} 0deg)"></div>
+        <div style="position:absolute;inset:8px;border-radius:50%;background:var(--bg-card);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${c}">${count}</div>
+      </div>
+      <span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">${label}</span>
+    </div>
+  `;
+}
+
+function buildStationCoverage(shifts) {
+  const byStation = {};
+  shifts.forEach(s => {
+    const st = s.station || 'Unassigned';
+    if (!byStation[st]) byStation[st] = { confirmed: 0, pending: 0, declined: 0, total: 0 };
+    byStation[st][s.status]++;
+    byStation[st].total++;
+  });
+  if (Object.keys(byStation).length === 0) return '';
+
+  return `
+    <div class="card mb-4">
+      <div class="card-title mb-3">Station Coverage</div>
+      ${Object.entries(byStation).map(([name, c]) => {
+        const pct = c.total > 0 ? Math.round((c.confirmed / c.total) * 100) : 0;
+        const barGreen = c.total > 0 ? (c.confirmed / c.total * 100) : 0;
+        const barAmber = c.total > 0 ? (c.pending / c.total * 100) : 0;
+        const barRed = c.total > 0 ? (c.declined / c.total * 100) : 0;
+        return `
+          <div style="margin-bottom:12px">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-sm semi">${name}</span>
+              <span class="text-xs text-muted">${c.confirmed}/${c.total} confirmed</span>
+            </div>
+            <div style="height:8px;border-radius:4px;background:var(--bg-primary);overflow:hidden;display:flex">
+              <div style="width:${barGreen}%;background:var(--green);transition:width .3s"></div>
+              <div style="width:${barAmber}%;background:var(--amber);transition:width .3s"></div>
+              <div style="width:${barRed}%;background:var(--red);transition:width .3s"></div>
+            </div>
+            <div class="flex gap-2 mt-1">
+              ${c.confirmed ? `<span class="text-xs text-green">✓ ${c.confirmed}</span>` : ''}
+              ${c.pending ? `<span class="text-xs text-amber">⏳ ${c.pending}</span>` : ''}
+              ${c.declined ? `<span class="text-xs text-red">✗ ${c.declined}</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
 
 async function renderScheduleDetail(app, params) {
   const scheduleId = params.id;
@@ -29,9 +84,13 @@ async function renderScheduleDetail(app, params) {
       byDate[s.date].push(s);
     });
 
+    const total = shifts.length;
     const confirmed = shifts.filter(s => s.status === 'confirmed').length;
     const pending = shifts.filter(s => s.status === 'pending').length;
     const declined = shifts.filter(s => s.status === 'declined').length;
+    const confirmedPct = total > 0 ? Math.round((confirmed / total) * 100) : 0;
+    const pendingPct = total > 0 ? Math.round((pending / total) * 100) : 0;
+    const declinedPct = total > 0 ? Math.round((declined / total) * 100) : 0;
 
     document.getElementById('sched-actions').innerHTML = `
       ${schedule.status === 'draft' ? `
@@ -39,24 +98,33 @@ async function renderScheduleDetail(app, params) {
       ` : ''}
     `;
 
+    // View toggle state
+    const viewMode = window._schedDetailView || 'overview';
+
     document.getElementById('schedule-detail').innerHTML = `
       <h2>${schedule.name}</h2>
       <p class="subtitle">${UI.formatDate(schedule.start_date)} - ${UI.formatDate(schedule.end_date)} ${UI.statusBadge(schedule.status)}</p>
 
-      <div class="stat-grid stat-grid-3 mb-4">
-        <div class="stat-card">
-          <div class="stat-label">Confirmed</div>
-          <div class="stat-value text-green">${confirmed}</div>
+      ${total > 0 ? `
+        <!-- Progress Rings -->
+        <div class="card mb-4" style="display:flex;justify-content:space-around;align-items:center;padding:20px 12px">
+          ${progressRing(confirmedPct, 'green', 'Confirmed', confirmed)}
+          ${progressRing(pendingPct, 'amber', 'Pending', pending)}
+          ${progressRing(declinedPct, 'red', 'Declined', declined)}
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Pending</div>
-          <div class="stat-value text-amber">${pending}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Declined</div>
-          <div class="stat-value text-red">${declined}</div>
-        </div>
-      </div>
+
+        ${declined > 0 ? `
+          <div class="card mb-4" style="background:var(--red-bg);border-color:rgba(239,68,68,.25)">
+            <div class="flex items-center gap-2">
+              <span style="font-size:18px">⚠️</span>
+              <div>
+                <div class="text-sm semi" style="color:var(--red-text)">${declined} shift${declined > 1 ? 's' : ''} declined</div>
+                <div class="text-xs text-muted">Use Auto-Fill to find replacements or manually reassign.</div>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+      ` : ''}
 
       <div class="flex gap-2 mb-4">
         <button class="btn btn-primary" style="flex:1" onclick="showAutoFillModal(${scheduleId})">
@@ -67,9 +135,19 @@ async function renderScheduleDetail(app, params) {
         </button>
       </div>
 
+      ${total > 0 ? `
+        <!-- View Toggle -->
+        <div class="flex gap-2 mb-3">
+          <button class="btn btn-sm ${viewMode === 'overview' ? 'btn-primary' : 'btn-secondary'}" onclick="window._schedDetailView='overview';renderScheduleDetail(document.getElementById('app'),{id:${scheduleId}})">By Date</button>
+          <button class="btn btn-sm ${viewMode === 'stations' ? 'btn-primary' : 'btn-secondary'}" onclick="window._schedDetailView='stations';renderScheduleDetail(document.getElementById('app'),{id:${scheduleId}})">By Station</button>
+        </div>
+      ` : ''}
+
       ${Object.keys(byDate).length === 0 ? UI.empty('📋', 'No shifts yet', 'Add employees to this schedule') : ''}
 
-      ${Object.entries(byDate).map(([date, dayShifts]) => `
+      ${viewMode === 'stations' && total > 0 ? buildStationCoverage(shifts) : ''}
+
+      ${viewMode === 'overview' ? Object.entries(byDate).map(([date, dayShifts]) => `
         <div class="mb-4">
           <h3 class="text-purple mb-2">${UI.formatDate(date)} (${dayShifts.length} staff)</h3>
           ${dayShifts.map(s => `
@@ -79,13 +157,43 @@ async function renderScheduleDetail(app, params) {
                   <div class="semi">${s.first_name} ${s.last_name}</div>
                   <div class="shift-time">${UI.formatTime(s.start_time)} - ${UI.formatTime(s.end_time)}</div>
                   ${s.station ? `<div class="shift-station">Station: ${s.station}</div>` : ''}
+                  ${s.status === 'declined' && s.decline_reason ? `<div class="text-xs text-red mt-1">Reason: ${s.decline_reason}</div>` : ''}
                 </div>
                 ${UI.statusBadge(s.status)}
               </div>
             </div>
           `).join('')}
         </div>
-      `).join('')}
+      `).join('') : ''}
+
+      ${viewMode === 'stations' && total > 0 ? `
+        <!-- Individual shift cards grouped by station -->
+        ${(() => {
+          const byStation = {};
+          shifts.forEach(s => {
+            const st = s.station || 'Unassigned';
+            if (!byStation[st]) byStation[st] = [];
+            byStation[st].push(s);
+          });
+          return Object.entries(byStation).map(([station, stShifts]) => `
+            <div class="mb-4">
+              <h3 class="text-purple mb-2">${station} (${stShifts.length} staff)</h3>
+              ${stShifts.map(s => `
+                <div class="shift-card ${s.status}">
+                  <div class="flex justify-between items-center">
+                    <div>
+                      <div class="semi">${s.first_name} ${s.last_name}</div>
+                      <div class="shift-time">${UI.formatTime(s.start_time)} - ${UI.formatTime(s.end_time)} · ${UI.formatDate(s.date)}</div>
+                      ${s.status === 'declined' && s.decline_reason ? `<div class="text-xs text-red mt-1">Reason: ${s.decline_reason}</div>` : ''}
+                    </div>
+                    ${UI.statusBadge(s.status)}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `).join('');
+        })()}
+      ` : ''}
 
       ${schedule.status === 'published' ? `
         <button class="btn btn-secondary btn-block mt-3" onclick="sendScheduleNotification(${scheduleId})">

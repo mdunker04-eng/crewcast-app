@@ -68,8 +68,11 @@ async function renderEmployeeSchedule(app) {
             ${s.status === 'pending' ? `
               <div class="shift-actions">
                 <button class="btn btn-success btn-sm" onclick="respondToShift(${s.schedule_id}, ${s.id}, 'confirmed')">Confirm</button>
-                <button class="btn btn-danger btn-sm" onclick="respondToShift(${s.schedule_id}, ${s.id}, 'declined')">Can't Make It</button>
+                <button class="btn btn-danger btn-sm" onclick="showDeclineModal(${s.schedule_id}, ${s.id})">Can't Make It</button>
               </div>
+            ` : ''}
+            ${s.status === 'declined' && s.decline_reason ? `
+              <div class="text-xs text-muted mt-2">Reason: ${s.decline_reason}</div>
             ` : ''}
             ${s.status === 'confirmed' ? `
               <div class="mt-2">
@@ -84,6 +87,71 @@ async function renderEmployeeSchedule(app) {
     document.getElementById('schedule-content').innerHTML = `
       <div class="card text-center"><p class="text-red">${err.message}</p></div>
     `;
+  }
+}
+
+function showDeclineModal(scheduleId, shiftId) {
+  const reasons = [
+    'Family commitment',
+    'Already scheduled at other job',
+    'Feeling sick',
+    'Car trouble',
+    'Out of town',
+    'School / class conflict',
+    'Other'
+  ];
+  UI.showModal("Can't Make It", `
+    <p class="text-sm text-muted mb-3">Let your manager know why so they can plan ahead.</p>
+    <div class="form-group">
+      <label class="form-label">Reason</label>
+      <div id="decline-reasons" style="display:flex;flex-direction:column;gap:6px">
+        ${reasons.map((r, i) => `
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border:1px solid var(--border);border-radius:8px;transition:border-color .15s" onclick="this.querySelector('input').checked=true;document.querySelectorAll('#decline-reasons label').forEach(l=>l.style.borderColor='var(--border)');this.style.borderColor='var(--purple)'">
+            <input type="radio" name="decline-reason" value="${r}" style="accent-color:var(--purple)" ${i === 0 ? 'checked' : ''}>
+            <span class="text-sm">${r}</span>
+          </label>
+        `).join('')}
+      </div>
+    </div>
+    <div id="decline-other-wrap" class="form-group hidden">
+      <label class="form-label">Please specify</label>
+      <input type="text" id="decline-other" class="form-input" placeholder="What's going on?">
+    </div>
+    <script>
+      document.querySelectorAll('input[name="decline-reason"]').forEach(r => {
+        r.addEventListener('change', () => {
+          document.getElementById('decline-other-wrap').classList.toggle('hidden', r.value !== 'Other');
+        });
+      });
+    </script>
+  `, `
+    <button class="btn btn-danger" onclick="submitDecline(${scheduleId}, ${shiftId})">Decline Shift</button>
+    <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
+  `);
+
+  // Attach the Other toggle listener after modal renders
+  setTimeout(() => {
+    document.querySelectorAll('input[name="decline-reason"]').forEach(r => {
+      r.addEventListener('change', () => {
+        document.getElementById('decline-other-wrap').classList.toggle('hidden', r.value !== 'Other');
+      });
+    });
+  }, 50);
+}
+
+async function submitDecline(scheduleId, shiftId) {
+  const selected = document.querySelector('input[name="decline-reason"]:checked');
+  let reason = selected ? selected.value : '';
+  if (reason === 'Other') {
+    reason = document.getElementById('decline-other')?.value || 'Other';
+  }
+  try {
+    await API.respondShift(scheduleId, shiftId, 'declined', null, reason);
+    UI.closeModal();
+    UI.toast('Shift declined');
+    renderEmployeeSchedule(document.getElementById('app'));
+  } catch (err) {
+    UI.toast(err.message, 'error');
   }
 }
 
