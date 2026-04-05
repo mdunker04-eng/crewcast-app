@@ -408,6 +408,32 @@ select.form-input { appearance: none; cursor: pointer; }
   .modal { max-width: none; border-radius: 12px; padding: 16px; }
 }
 
+/* ── PWA Install Banner ── */
+#install-banner {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 500px;
+  z-index: 150;
+  animation: slideUp .3s ease;
+}
+#install-banner .install-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1px solid var(--purple);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+}
+@keyframes slideUp {
+  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
 /* ═══════════════════════════════════════════════════════
    Admin Sidebar Layout (desktop)
    ═══════════════════════════════════════════════════════ */

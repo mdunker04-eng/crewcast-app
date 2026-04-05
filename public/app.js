@@ -91,6 +91,89 @@ demoRoutes.forEach(([path, handler]) => {
 // ── Initialize router ──
 Router.init();
 
+// ── PWA Install Prompt ──
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  showInstallBanner();
+});
+
+function showInstallBanner() {
+  // Don't show if already installed (standalone mode)
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  // Don't show if user dismissed it this session
+  if (sessionStorage.getItem('cc-install-dismissed')) return;
+
+  // Remove existing banner if any
+  const existing = document.getElementById('install-banner');
+  if (existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'install-banner';
+  banner.innerHTML = `
+    <div class="install-banner-content">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <span style="font-size:24px">📲</span>
+        <div>
+          <div class="semi" style="font-size:13px">Install CrewCast</div>
+          <div class="text-xs text-muted">Add to your home screen for quick access</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-primary btn-sm" onclick="triggerInstall()">Install</button>
+        <button class="btn btn-ghost btn-sm" onclick="dismissInstallBanner()" style="padding:4px 8px;font-size:16px">&times;</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(banner);
+}
+
+async function triggerInstall() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const result = await deferredInstallPrompt.userChoice;
+  if (result.outcome === 'accepted') {
+    UI.toast('CrewCast installed!');
+  }
+  deferredInstallPrompt = null;
+  dismissInstallBanner();
+}
+
+function dismissInstallBanner() {
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.remove();
+  sessionStorage.setItem('cc-install-dismissed', '1');
+}
+
+// Also show iOS-specific instructions (Safari doesn't fire beforeinstallprompt)
+function checkIOSInstallHint() {
+  const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  const dismissed = sessionStorage.getItem('cc-install-dismissed');
+  if (isIOS && !isStandalone && !dismissed) {
+    const existing = document.getElementById('install-banner');
+    if (existing) return; // Android banner already showing
+    const banner = document.createElement('div');
+    banner.id = 'install-banner';
+    banner.innerHTML = `
+      <div class="install-banner-content">
+        <div style="display:flex;align-items:center;gap:10px;flex:1">
+          <span style="font-size:24px">📲</span>
+          <div>
+            <div class="semi" style="font-size:13px">Install CrewCast</div>
+            <div class="text-xs text-muted">Tap <strong>Share</strong> ↗ then <strong>"Add to Home Screen"</strong></div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="dismissInstallBanner()" style="padding:4px 8px;font-size:16px">&times;</button>
+      </div>
+    `;
+    document.body.appendChild(banner);
+  }
+}
+setTimeout(checkIOSInstallHint, 2000);
+
 // ── Register Service Worker for PWA ──
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js')
