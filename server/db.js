@@ -128,6 +128,11 @@ async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+    // Add staff_needed column if it doesn't exist (table may predate this column)
+    await client.query(`
+      ALTER TABLE stations ADD COLUMN IF NOT EXISTS staff_needed INTEGER DEFAULT 5
+    `).catch(() => {});
+
     console.log('Database schema initialized');
 
     // One-time migration: update staff_needed for stations that still have default=5
