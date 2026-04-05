@@ -378,10 +378,11 @@ async function bulkAddFromText() {
 
 // Helper: generate staff-needed dropdown options
 function generateStaffOptions(selected) {
-  const counts = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 20, 25, 30, 35, 40, 50];
-  return counts.map(n =>
-    `<option value="${n}" ${n === selected ? 'selected' : ''}>${n} people</option>`
-  ).join('');
+  let opts = '';
+  for (let n = 1; n <= 50; n++) {
+    opts += `<option value="${n}" ${n === selected ? 'selected' : ''}>${n} ${n === 1 ? 'person' : 'people'}</option>`;
+  }
+  return opts;
 }
 
 // Helper: generate time dropdown options in 30-min increments

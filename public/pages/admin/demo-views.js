@@ -372,12 +372,12 @@ function renderDemoCrowdPulse(app) {
 // RENDER: DEMO STATION VIEW
 // ═══════════════════════════════════════════════════════
 function renderDemoStationViewContent() {
-  return '<h1>Station View</h1><div class="subtitle">Employees assigned per station — confirmed, pending, and declined</div>'+
+  return '<h1>🏗️ Station View</h1><div class="subtitle">Employees assigned per station — confirmed, pending, and declined</div>'+
     ['May 2','May 3'].map(function(day) {
       const dayLabel = DEMO_CROWD[day].day+', '+DEMO_CROWD[day].date;
       return '<div class="card"><div class="card-header"><div class="card-title">📅 '+dayLabel+'</div>'+
         '<div class="flex gap2"><span class="tag tag-green">✓ '+demoCountAll(day,'confirmed')+'</span><span class="tag tag-amber">⏳ '+demoCountAll(day,'pending')+'</span><span class="tag tag-red">✗ '+demoCountAll(day,'declined')+'</span></div></div>'+
-        '<table><thead><tr><th>Station</th><th>Need</th><th>Staff</th><th>Coverage</th><th>Status</th></tr></thead><tbody>'+
+        '<div style="overflow-x:auto"><table><thead><tr><th>Station</th><th>Need</th><th>Staff</th><th>Coverage</th><th>Status</th></tr></thead><tbody>'+
         DEMO_STATIONS.map(st => {
           const need = DEMO_NEEDS[day][st.id] || 0;
           if(need === 0) return '';
@@ -387,18 +387,18 @@ function renderDemoStationViewContent() {
           const allConf = arr.length > 0 && arr.every(a=>a.status==='confirmed');
           const badge = hasDecl ? '<span class="badge badge-red">⚠ Gap</span>' : allConf ? '<span class="badge badge-green">✓ Full</span>' : '<span class="badge badge-amber">⏳</span>';
 
-          return '<tr><td><span class="semi">'+st.icon+' '+st.name+'</span><div class="text-xs text-muted">'+demoFmtH(st.open)+'–'+demoFmtH(st.close)+'</div></td>'+
-            '<td class="semi">'+need+'</td>'+
+          return '<tr><td style="white-space:nowrap"><span class="semi">'+st.icon+' '+st.name+'</span><div class="text-xs text-muted">'+demoFmtH(st.open)+'–'+demoFmtH(st.close)+'</div></td>'+
+            '<td class="semi" style="text-align:center">'+need+'</td>'+
             '<td><div class="flex gap1 flex-wrap">'+
               arr.map(a => {
                 const bgA = a.status==='confirmed'?'52,211,153':a.status==='pending'?'251,191,36':'239,68,68';
-                return '<span class="tag" style="background:rgba('+bgA+',.12);color:'+demoStatusColor(a.status)+'">'+a.employee.firstName+' '+a.employee.lastName.charAt(0)+'. '+demoStatusIcon(a.status)+'</span>';
+                return '<span class="tag" style="background:rgba('+bgA+',.12);color:'+demoStatusColor(a.status)+';font-size:10px;padding:2px 6px">'+a.employee.firstName+' '+a.employee.lastName.charAt(0)+'. '+demoStatusIcon(a.status)+'</span>';
               }).join('')+
             '</div></td>'+
-            '<td>'+demoCbar(active.length, need)+' <span class="text-xs">'+active.length+'/'+need+'</span></td>'+
+            '<td style="white-space:nowrap">'+demoCbar(active.length, need)+' <span class="text-xs">'+active.length+'/'+need+'</span></td>'+
             '<td>'+badge+'</td></tr>';
         }).join('')+
-        '</tbody></table></div>';
+        '</tbody></table></div></div>';
     }).join('');
 }
 
@@ -1224,10 +1224,10 @@ function demoStormCloseOutdoor() {
   refreshDemoStorm();
 }
 
-function demoStormHalfAll() {
+function demoStormCutByPct(pct) {
   const staffCounts = demoGetStationStaff(demoStormDay);
   DEMO_STATIONS.forEach(s=>{
-    demoDemoStormCuts[s.id] = Math.floor(staffCounts[s.id] / 2);
+    demoDemoStormCuts[s.id] = Math.round(staffCounts[s.id] * (pct / 100));
   });
   refreshDemoStorm();
 }
@@ -1343,7 +1343,10 @@ function renderDemoStormContent() {
     '<div class="text-xs semi text-muted" style="margin-bottom:2px">Quick Actions:</div>'+
     '<div class="flex gap2 flex-wrap">'+
       '<button class="btn btn-sm btn-danger" onclick="demoStormCloseOutdoor()">🌧️ Close All Outdoor</button>'+
-      '<button class="btn btn-sm btn-secondary" style="border-color:rgba(248,113,113,.4);color:#F87171" onclick="demoStormHalfAll()">📉 Cut All by 50%</button>'+
+      '<span class="flex items-center gap1" style="display:inline-flex"><select id="storm-pct-select" style="width:70px;background:#0F172A;border:1px solid rgba(248,113,113,.4);border-radius:4px;padding:4px 6px;color:#F87171;font-size:11px;text-align:center">'+
+        Array.from({length:19},(_,i)=>{const v=(i+1)*5; return '<option value="'+v+'"'+(v===50?' selected':'')+'>'+v+'%</option>';}).join('')+
+      '</select>'+
+      '<button class="btn btn-sm btn-secondary" style="border-color:rgba(248,113,113,.4);color:#F87171" onclick="demoStormCutByPct(parseInt(document.getElementById(\'storm-pct-select\').value))">📉 Cut All</button></span>'+
       '<button class="btn btn-sm btn-secondary" style="border-color:rgba(251,191,36,.4);color:#FBBF24" onclick="demoStormKeepEssential()">🏠 Indoor Only + Parking</button>'+
       '<button class="btn btn-sm btn-secondary" onclick="demoStormReset()">↩️ Reset</button>'+
     '</div>'+
