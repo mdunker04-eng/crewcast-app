@@ -10,9 +10,14 @@ Router.add('/login', (app) => renderLogin(app));
 Router.add('/invite/:token', (app, params) => renderSetup(app, params));
 
 // Employee routes
+Router.add('/welcome', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  renderEmployeeWelcome(app);
+});
 Router.add('/', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
   if (API.isAdmin()) return Router.navigate('/admin', true);
+  if (shouldShowEmployeeWelcome()) return Router.navigate('/welcome', true);
   renderEmployeeHome(app);
 });
 Router.add('/schedule', (app) => {
@@ -33,6 +38,11 @@ Router.add('/preferences', (app) => {
 });
 
 // Admin routes
+Router.add('/admin/welcome', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderAdminWelcome(app);
+});
 Router.add('/admin', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
   if (!API.isAdmin()) return Router.navigate('/', true);

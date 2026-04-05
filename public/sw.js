@@ -3,7 +3,7 @@
 // Caching + Push Notifications
 // ═══════════════════════════════════════════════════════
 
-const CACHE_NAME = 'crewcast-v8';
+const CACHE_NAME = 'crewcast-v9';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -19,12 +19,14 @@ const STATIC_ASSETS = [
   '/pages/employee/availability.js',
   '/pages/employee/swaps.js',
   '/pages/employee/preferences.js',
+  '/pages/employee/welcome.js',
   '/pages/admin/dashboard.js',
   '/pages/admin/employees.js',
   '/pages/admin/create-schedule.js',
   '/pages/admin/schedule-detail.js',
   '/pages/admin/stations.js',
   '/pages/admin/settings.js',
+  '/pages/admin/welcome.js',
   '/pages/admin/demo-views.js',
   '/manifest.json',
 ];

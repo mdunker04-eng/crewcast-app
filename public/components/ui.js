@@ -112,6 +112,7 @@ const UI = {
     const businessName = (API.user && API.user.businessName) || 'CrewCast';
     const items = [
       { section: 'Admin' },
+      { id: 'welcome', icon: '🚀', label: 'Getting Started', path: '/admin/welcome' },
       { id: 'dashboard', icon: SVG.grid, label: 'Dashboard', path: '/admin' },
       { id: 'stations', icon: SVG.station, label: 'Stations', path: '/admin/stations' },
       { id: 'schedules', icon: SVG.calendar, label: 'Schedules', path: '/admin/schedules' },
