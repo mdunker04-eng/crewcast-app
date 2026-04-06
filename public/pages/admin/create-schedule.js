@@ -117,6 +117,7 @@ function schedCalNav(dir) {
 function renderScheduleCalendar() {
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   document.getElementById('sched-cal-title').textContent =
     `${monthNames[_calendarMonth]} ${_calendarYear}`;
@@ -140,13 +141,15 @@ function renderScheduleCalendar() {
     const isPast = date < today;
     const isToday = date.getTime() === today.getTime();
     const isSelected = _selectedDates.has(dateStr);
+    const dayName = dayNames[date.getDay()];
 
     let cls = 'calendar-day';
     if (isPast) cls += ' other-month';
     if (isToday) cls += ' today';
     if (isSelected) cls += ' selected';
 
-    html += `<div class="${cls}" onclick="${isPast ? '' : `toggleSchedDate('${dateStr}')`}" style="${isPast ? 'cursor:default' : ''}">${d}</div>`;
+    const ariaLabel = `${monthNames[_calendarMonth]} ${d}, ${dayName}`;
+    html += `<div class="${cls}" onclick="${isPast ? '' : `toggleSchedDate('${dateStr}')`}" style="${isPast ? 'cursor:default' : ''}" aria-label="${ariaLabel}">${d}</div>`;
   }
 
   document.getElementById('sched-cal-days').innerHTML = html;

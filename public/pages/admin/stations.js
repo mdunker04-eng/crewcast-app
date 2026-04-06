@@ -372,6 +372,7 @@ async function bulkAddFromText() {
     const result = await API.bulkAddStations(stations);
     UI.toast(`Added ${result.added} stations!${result.skipped ? ` (${result.skipped} duplicates skipped)` : ''}`);
     await loadStations();
+    showContinueSetup();
   } catch (err) {
     UI.toast(err.message, 'error');
   }

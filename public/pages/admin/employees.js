@@ -2,6 +2,14 @@
 // CrewCast — Admin Employee Management
 // ═══════════════════════════════════════════════════════
 
+// Format phone number from 10 digits to (XXX) XXX-XXXX
+function formatPhoneNumber(digits) {
+  if (!digits) return '';
+  const cleaned = digits.toString().replace(/\D/g, '').slice(-10);
+  if (cleaned.length !== 10) return cleaned;
+  return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+}
+
 async function renderAdminEmployees(app) {
   app.innerHTML = UI.adminShell('employees', `
     <div class="page">
@@ -46,8 +54,11 @@ async function renderAdminEmployees(app) {
         ${active.map(e => `
           <div class="list-item">
             <div>
-              <div class="semi">${e.firstName} ${e.lastName}</div>
-              <div class="text-xs text-muted">${e.phone}</div>
+              <div class="flex items-center gap-2">
+                <div class="semi">${e.firstName} ${e.lastName}</div>
+                ${e.role === 'admin' || e.role === 'lead' ? `<span class="badge" style="font-size:10px;padding:2px 6px;background:var(--purple);color:white">${e.role.charAt(0).toUpperCase() + e.role.slice(1)}</span>` : ''}
+              </div>
+              <div class="text-xs text-muted">${formatPhoneNumber(e.phone)}</div>
             </div>
             <div class="flex items-center gap-2">
               ${e.hasPin ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Invited</span>'}
@@ -64,7 +75,7 @@ async function renderAdminEmployees(app) {
             <div class="list-item" style="opacity:.5">
               <div>
                 <div class="semi">${e.firstName} ${e.lastName}</div>
-                <div class="text-xs text-muted">${e.phone}</div>
+                <div class="text-xs text-muted">${formatPhoneNumber(e.phone)}</div>
               </div>
               <span class="badge badge-red">Inactive</span>
             </div>

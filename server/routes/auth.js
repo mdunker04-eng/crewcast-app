@@ -173,6 +173,18 @@ router.post('/register', async (req, res) => {
 
     const businessId = bizRows[0].id;
 
+    // Save initial settings with contact info from registration
+    const initialSettings = {
+      businessName,
+      contactName: `${firstName} ${lastName}`,
+      contactPhone: digits,
+      contactEmail: email || null,
+    };
+    await pool.query('UPDATE businesses SET settings = $1 WHERE id = $2', [
+      JSON.stringify(initialSettings),
+      businessId,
+    ]);
+
     // Create admin employee
     const pinHash = bcrypt.hashSync(pin, 10);
     const { rows: empRows } = await pool.query(`
