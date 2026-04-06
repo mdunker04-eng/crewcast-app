@@ -594,3 +594,7 @@ select.form-input { appearance: none; cursor: pointer; }
   .grid4, .grid5 { grid-template-columns: 1fr 1fr; }
   .grid3 { grid-template-columns: 1fr 1fr; }
 }
+
+/* Dropdown menus */
+.add-emp-dropdown { display: none !important; }
+.add-emp-dropdown.show { display: block !important; }
