@@ -199,7 +199,7 @@ function renderSettingsSections() {
     </div>
 
     <!-- Save button -->
-    <div style="position:sticky;bottom:70px;z-index:10;padding:12px 0">
+    <div style="position:sticky;bottom:16px;z-index:10;padding:12px 0">
       <button class="btn btn-primary btn-block" id="settings-save-btn" onclick="saveAllSettings()" style="display:none">
         💾 Save Changes
       </button>
@@ -213,7 +213,7 @@ function renderSettingsSections() {
       ${settingsTextarea('uniqueRules', 'Any unique rules or policies we should know about?', '')}
     </div>
 
-    <div style="height:80px"></div>
+    <div style="height:20px"></div>
   `;
 
   // Wire up conditional toggles
@@ -229,14 +229,27 @@ function renderSettingsSections() {
 
 function settingsField(key, label, type, placeholder, defaultVal) {
   const val = _settingsData[key] || defaultVal || '';
+  const phoneHandler = type === 'tel' ? `oninput="formatSettingsPhone(this)" ` : '';
   return `
     <div class="form-group">
       <label class="form-label">${label}</label>
       <input type="${type}" class="form-input settings-input" data-key="${key}"
-        value="${val}" placeholder="${placeholder || ''}"
-        onchange="markSettingDirty('${key}', this.value)">
+        value="${val}" placeholder="${placeholder || '(555) 123-4567'}"
+        ${phoneHandler}onchange="markSettingDirty('${key}', this.value)">
     </div>
   `;
+}
+
+function formatSettingsPhone(input) {
+  let digits = input.value.replace(/\D/g, '').substring(0, 10);
+  if (digits.length >= 7) {
+    input.value = '(' + digits.substring(0,3) + ') ' + digits.substring(3,6) + '-' + digits.substring(6);
+  } else if (digits.length >= 4) {
+    input.value = '(' + digits.substring(0,3) + ') ' + digits.substring(3);
+  } else if (digits.length > 0) {
+    input.value = '(' + digits;
+  }
+  markSettingDirty(input.dataset.key, input.value);
 }
 
 function settingsNumber(key, label, min, max, defaultVal) {

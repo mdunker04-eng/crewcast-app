@@ -2,6 +2,17 @@
 // CrewCast — Admin Station Setup
 // ═══════════════════════════════════════════════════════
 
+let _stationDefaults = { openTime: '09:00', closeTime: '17:00', arriveEarly: 15 };
+
+async function loadStationDefaults() {
+  try {
+    const settings = await API.getSettings();
+    if (settings.defaultOpenTime) _stationDefaults.openTime = settings.defaultOpenTime;
+    if (settings.defaultCloseTime) _stationDefaults.closeTime = settings.defaultCloseTime;
+    if (settings.arriveEarlyMinutes != null) _stationDefaults.arriveEarly = settings.arriveEarlyMinutes;
+  } catch(e) {}
+}
+
 async function renderAdminStations(app) {
   app.innerHTML = UI.adminShell('stations', `
     <div class="page">
@@ -16,6 +27,7 @@ async function renderAdminStations(app) {
     </div>
   `);
 
+  await loadStationDefaults();
   await loadStations();
 }
 
@@ -205,25 +217,19 @@ function showAddStationModal() {
     <div class="form-group">
       <label class="form-label">Opens At</label>
       <select id="station-open" class="form-input">
-        ${generateTimeOptions('09:00')}
+        ${generateTimeOptions(_stationDefaults.openTime)}
       </select>
     </div>
     <div class="form-group">
       <label class="form-label">Closes At</label>
       <select id="station-close" class="form-input">
-        ${generateTimeOptions('17:00')}
+        ${generateTimeOptions(_stationDefaults.closeTime)}
       </select>
     </div>
     <div class="form-group">
       <label class="form-label">Staff Arrive Early</label>
       <select id="station-early" class="form-input">
-        <option value="0">No early arrival</option>
-        <option value="10">10 minutes before</option>
-        <option value="15" selected>15 minutes before</option>
-        <option value="20">20 minutes before</option>
-        <option value="30">30 minutes before</option>
-        <option value="45">45 minutes before</option>
-        <option value="60">1 hour before</option>
+        ${[0,10,15,20,30,45,60].map(m => `<option value="${m}" ${m === _stationDefaults.arriveEarly ? 'selected' : ''}>${m === 0 ? 'No early arrival' : m === 60 ? '1 hour before' : m + ' minutes before'}</option>`).join('')}
       </select>
     </div>
     <div class="form-group">
@@ -362,9 +368,9 @@ async function bulkAddFromText() {
   const stations = lines.map(name => ({
     name,
     description: '',
-    openTime: '09:00',
-    closeTime: '17:00',
-    arriveEarlyMinutes: 15,
+    openTime: _stationDefaults.openTime,
+    closeTime: _stationDefaults.closeTime,
+    arriveEarlyMinutes: _stationDefaults.arriveEarly,
     staffNeeded: 5,
   }));
 

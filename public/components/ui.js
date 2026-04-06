@@ -229,7 +229,7 @@ async function showContinueSetup() {
 
   const banner = document.createElement('div');
   banner.id = 'continue-setup-banner';
-  banner.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:150;animation:slideUp .3s ease';
+  banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:150;animation:slideUp .3s ease;max-width:calc(100% - 32px)';
   banner.innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;background:var(--bg-card);border:1px solid var(--green);border-radius:12px;padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,.4)">
       <span style="color:var(--green-text);font-size:14px;font-weight:600">✅ Done!</span>
