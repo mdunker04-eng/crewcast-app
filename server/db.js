@@ -162,31 +162,34 @@ async function initDB() {
     } catch (e) { /* column may already exist */ }
 
     // Migration: station categories & category ratings
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS station_categories (
-        id SERIAL PRIMARY KEY,
-        business_id INTEGER NOT NULL REFERENCES businesses(id),
-        name TEXT NOT NULL,
-        icon TEXT DEFAULT '📋',
-        sort_order INTEGER DEFAULT 0,
-        UNIQUE(business_id, name)
-      )
-    `).catch(() => {});
-
-    await client.query(`
-      ALTER TABLE stations ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES station_categories(id)
-    `).catch(() => {});
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS employee_category_ratings (
-        id SERIAL PRIMARY KEY,
-        employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-        category_id INTEGER NOT NULL REFERENCES station_categories(id) ON DELETE CASCADE,
-        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
-        updated_at TIMESTAMPTZ DEFAULT NOW(),
-        UNIQUE(employee_id, category_id)
-      )
-    `).catch(() => {});
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS station_categories (
+          id SERIAL PRIMARY KEY,
+          business_id INTEGER NOT NULL REFERENCES businesses(id),
+          name TEXT NOT NULL,
+          icon TEXT DEFAULT '📋',
+          sort_order INTEGER DEFAULT 0,
+          UNIQUE(business_id, name)
+        )
+      `);
+      await client.query(`
+        ALTER TABLE stations ADD COLUMN IF NOT EXISTS category_id INTEGER
+      `);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS employee_category_ratings (
+          id SERIAL PRIMARY KEY,
+          employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+          category_id INTEGER NOT NULL REFERENCES station_categories(id) ON DELETE CASCADE,
+          rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+          updated_at TIMESTAMPTZ DEFAULT NOW(),
+          UNIQUE(employee_id, category_id)
+        )
+      `);
+      console.log('Category tables ready');
+    } catch (catTableErr) {
+      console.log('Category tables migration note:', catTableErr.message);
+    }
 
     // Seed default station categories for each business that doesn't have any
     try {
@@ -205,7 +208,7 @@ async function initDB() {
           ];
           for (const [name, icon, order] of cats) {
             await client.query(
-              'INSERT INTO station_categories (business_id, name, icon, sort_order) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING',
+              'INSERT INTO station_categories (business_id, name, icon, sort_order) VALUES ($1, $2, $3, $4) ON CONFLICT (business_id, name) DO NOTHING',
               [biz.id, name, icon, order]
             );
           }
@@ -235,6 +238,7 @@ async function initDB() {
               }
             }
           }
+          console.log('Seeded categories for business', biz.id);
         }
       }
     } catch (catErr) {
