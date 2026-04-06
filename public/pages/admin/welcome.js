@@ -35,7 +35,7 @@ async function renderAdminWelcome(app) {
         id: 'settings',
         title: 'Complete your Settings',
         desc: 'Fill in business name, operating hours, and scheduling rules.',
-        done: !!(settings.businessName && settings.operatingHoursOpen),
+        done: !!(settings.businessName && settings.defaultOpenTime),
         action: '/admin/settings',
         icon: '⚙️',
         doneDetail: settings.businessName ? `Business: ${settings.businessName}` : '',

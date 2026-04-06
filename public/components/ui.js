@@ -194,10 +194,37 @@ const UI = {
 };
 
 // ── Continue Setup Banner (shown after completing a step) ──
-function showContinueSetup() {
+// Figures out the next incomplete setup step and navigates directly there
+async function showContinueSetup() {
   // Remove any existing banner
   const existing = document.getElementById('continue-setup-banner');
   if (existing) existing.remove();
+
+  // Determine the next incomplete step
+  let nextPath = '/admin/welcome'; // fallback
+  let nextLabel = 'Continue Setup';
+  try {
+    const [stations, employees, settings] = await Promise.all([
+      API.getStations(),
+      API.getEmployees(),
+      API.getSettings().catch(() => ({})),
+    ]);
+    let hasSchedules = false;
+    try { const s = await API.getSchedules(); hasSchedules = s && s.length > 0; } catch(e) {}
+
+    const activeStations = stations.filter(s => s.active);
+    const activeEmployees = employees.filter(e => e.active && e.role !== 'admin' && e.role !== 'owner');
+
+    const steps = [
+      { done: !!(settings.businessName && settings.defaultOpenTime), path: '/admin/settings', label: 'Set up Settings' },
+      { done: activeStations.length >= 2, path: '/admin/stations', label: 'Set up Stations' },
+      { done: activeEmployees.length >= 1, path: '/admin/employees', label: 'Add Employees' },
+      { done: hasSchedules, path: '/admin/schedules', label: 'Create Schedule' },
+    ];
+    const next = steps.find(s => !s.done);
+    if (next) { nextPath = next.path; nextLabel = next.label; }
+    else { nextPath = '/admin'; nextLabel = 'Go to Dashboard'; }
+  } catch(e) {}
 
   const banner = document.createElement('div');
   banner.id = 'continue-setup-banner';
@@ -205,7 +232,7 @@ function showContinueSetup() {
   banner.innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;background:var(--bg-card);border:1px solid var(--green);border-radius:12px;padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,.4)">
       <span style="color:var(--green-text);font-size:14px;font-weight:600">✅ Done!</span>
-      <button class="btn btn-primary btn-sm" onclick="Router.navigate('/admin/welcome');document.getElementById('continue-setup-banner')?.remove()">Continue Setup →</button>
+      <button class="btn btn-primary btn-sm" onclick="Router.navigate('${nextPath}');document.getElementById('continue-setup-banner')?.remove()">${nextLabel} →</button>
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('continue-setup-banner')?.remove()" style="padding:4px 8px;font-size:16px">&times;</button>
     </div>
   `;
