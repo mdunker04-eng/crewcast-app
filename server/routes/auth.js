@@ -138,6 +138,80 @@ router.post('/setup', async (req, res) => {
   }
 });
 
+// ── POST /api/auth/register ──
+// New business signup — creates business + admin account
+router.post('/register', async (req, res) => {
+  try {
+    const { businessName, firstName, lastName, phone, email, pin } = req.body;
+
+    if (!businessName || !firstName || !lastName || !phone || !pin) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+    if (pin.length < 4 || pin.length > 6) {
+      return res.status(400).json({ error: 'PIN must be 4-6 digits' });
+    }
+
+    const digits = phone.replace(/\D/g, '').slice(-10);
+    if (digits.length !== 10) {
+      return res.status(400).json({ error: 'Enter a valid 10-digit phone number' });
+    }
+
+    // Generate slug from business name
+    let slug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    // Check uniqueness, append random suffix if needed
+    const { rows: existing } = await pool.query('SELECT id FROM businesses WHERE slug = $1', [slug]);
+    if (existing.length > 0) {
+      slug += '-' + crypto.randomBytes(3).toString('hex');
+    }
+
+    // Create business
+    const { rows: bizRows } = await pool.query(`
+      INSERT INTO businesses (name, slug, owner_name, owner_phone, owner_email)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+    `, [businessName, slug, `${firstName} ${lastName}`, digits, email || null]);
+
+    const businessId = bizRows[0].id;
+
+    // Create admin employee
+    const pinHash = bcrypt.hashSync(pin, 10);
+    const { rows: empRows } = await pool.query(`
+      INSERT INTO employees (business_id, first_name, last_name, phone, pin_hash, role)
+      VALUES ($1, $2, $3, $4, $5, 'admin')
+      RETURNING id
+    `, [businessId, firstName, lastName, digits, pinHash]);
+
+    const employeeId = empRows[0].id;
+
+    // Create session
+    const token = crypto.randomBytes(32).toString('hex');
+    await pool.query(`
+      INSERT INTO sessions (employee_id, token, expires_at)
+      VALUES ($1, $2, NOW() + INTERVAL '30 days')
+    `, [employeeId, token]);
+
+    res.json({
+      token,
+      user: {
+        id: employeeId,
+        firstName,
+        lastName,
+        phone: digits,
+        role: 'admin',
+        businessId,
+        businessName,
+        businessSlug: slug,
+      },
+    });
+  } catch (err) {
+    console.error('Register error:', err);
+    if (err.code === '23505' && err.constraint === 'employees_business_id_phone_key') {
+      return res.status(400).json({ error: 'This phone number is already registered' });
+    }
+    res.status(500).json({ error: 'Registration failed. Please try again.' });
+  }
+});
+
 // ── GET /api/auth/me ──
 // Get current user info
 router.get('/me', authenticate, (req, res) => {

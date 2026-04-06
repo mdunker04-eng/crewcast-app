@@ -20,6 +20,9 @@ function renderLogin(app) {
         <p class="text-center text-muted text-xs mt-3">
           Got an invite link? Open it to set up your account.
         </p>
+        <p class="text-center text-xs mt-2">
+          <a href="#" onclick="Router.navigate('/signup');return false" style="color:var(--purple-light);text-decoration:none">New business? Sign up here →</a>
+        </p>
       </div>
     </div>
   `;

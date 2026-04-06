@@ -3,7 +3,7 @@
 // Caching + Push Notifications
 // ═══════════════════════════════════════════════════════
 
-const CACHE_NAME = 'crewcast-v10';
+const CACHE_NAME = 'crewcast-v11';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -13,6 +13,7 @@ const STATIC_ASSETS = [
   '/components/router.js',
   '/components/ui.js',
   '/pages/login.js',
+  '/pages/onboard.js',
   '/pages/setup.js',
   '/pages/employee/home.js',
   '/pages/employee/schedule.js',

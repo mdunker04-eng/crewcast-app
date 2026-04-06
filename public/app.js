@@ -7,6 +7,7 @@
 
 // Auth routes
 Router.add('/login', (app) => renderLogin(app));
+Router.add('/signup', (app) => renderOnboard(app));
 Router.add('/invite/:token', (app, params) => renderSetup(app, params));
 
 // Employee routes
