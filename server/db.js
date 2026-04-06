@@ -161,6 +161,86 @@ async function initDB() {
       await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT NULL');
     } catch (e) { /* column may already exist */ }
 
+    // Migration: station categories & category ratings
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS station_categories (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        name TEXT NOT NULL,
+        icon TEXT DEFAULT '📋',
+        sort_order INTEGER DEFAULT 0,
+        UNIQUE(business_id, name)
+      )
+    `).catch(() => {});
+
+    await client.query(`
+      ALTER TABLE stations ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES station_categories(id)
+    `).catch(() => {});
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS employee_category_ratings (
+        id SERIAL PRIMARY KEY,
+        employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        category_id INTEGER NOT NULL REFERENCES station_categories(id) ON DELETE CASCADE,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(employee_id, category_id)
+      )
+    `).catch(() => {});
+
+    // Seed default station categories for each business that doesn't have any
+    try {
+      const { rows: businesses } = await client.query('SELECT id FROM businesses');
+      for (const biz of businesses) {
+        const { rows: existing } = await client.query(
+          'SELECT id FROM station_categories WHERE business_id = $1 LIMIT 1', [biz.id]
+        );
+        if (existing.length === 0) {
+          const cats = [
+            ['Guest Services', '🎟️', 1],
+            ['Food & Beverage', '🍕', 2],
+            ['Attractions & Activities', '🎢', 3],
+            ['Agriculture & Outdoors', '🌾', 4],
+            ['Facilities & Operations', '🔧', 5],
+          ];
+          for (const [name, icon, order] of cats) {
+            await client.query(
+              'INSERT INTO station_categories (business_id, name, icon, sort_order) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING',
+              [biz.id, name, icon, order]
+            );
+          }
+
+          // Auto-assign stations to categories
+          const catMap = {
+            'Guest Services': ['Admission', 'Ticketing', 'Country Store', 'Gift Shop', 'Parking', 'Shuttle', 'Admission/Front Gate'],
+            'Food & Beverage': ['Food Stand', 'Bakery', 'Apple Goods', 'Cider Press', 'Taproom', 'Pie Barn'],
+            'Attractions & Activities': ['Corn Maze', 'Hayride', 'Jumping Pillow', 'Super Slide', 'Train Ride', 'Apple Slingshot', 'Corn Pool', 'Pedal Tractors', 'Go-Carts', 'Playground'],
+            'Agriculture & Outdoors': ['Apple Picking', 'Pumpkin Patch', 'Sunflower', 'Nature Trail', 'Farm Animals', 'Petting Zoo'],
+            'Facilities & Operations': ['Potty Barn', 'Fire Pit', 'Storybook', 'Schoolhouse'],
+          };
+          const { rows: catRows } = await client.query(
+            'SELECT id, name FROM station_categories WHERE business_id = $1', [biz.id]
+          );
+          const { rows: stationRows } = await client.query(
+            'SELECT id, name FROM stations WHERE business_id = $1', [biz.id]
+          );
+          for (const cat of catRows) {
+            const keywords = catMap[cat.name] || [];
+            for (const station of stationRows) {
+              if (keywords.some(kw => station.name.toLowerCase().includes(kw.toLowerCase()))) {
+                await client.query(
+                  'UPDATE stations SET category_id = $1 WHERE id = $2 AND category_id IS NULL',
+                  [cat.id, station.id]
+                );
+              }
+            }
+          }
+        }
+      }
+    } catch (catErr) {
+      console.log('Category seed skipped:', catErr.message);
+    }
+
     // One-time migration: update staff_needed for stations that still have default=5
     // This fixes stations imported before the staff_needed column had proper estimates
     try {

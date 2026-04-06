@@ -325,4 +325,96 @@ router.get('/by-station/:stationId', authenticate, requireAdmin, async (req, res
   }
 });
 
+// ══════════════════════════════════════
+// STATION CATEGORIES & CATEGORY RATINGS
+// ══════════════════════════════════════
+
+// ── GET /api/employees/categories ──
+// Get all station categories for the business
+router.get('/categories/list', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT sc.*,
+        (SELECT json_agg(json_build_object('id', s.id, 'name', s.name) ORDER BY s.name)
+         FROM stations s WHERE s.category_id = sc.id AND s.active = true) as stations
+      FROM station_categories sc
+      WHERE sc.business_id = $1
+      ORDER BY sc.sort_order, sc.name
+    `, [req.user.businessId]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Get categories error:', err);
+    res.status(500).json({ error: 'Failed to get categories' });
+  }
+});
+
+// ── GET /api/employees/:id/category-ratings ──
+// Get category ratings for a specific employee
+router.get('/:id/category-ratings', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT ecr.category_id, ecr.rating, sc.name as category_name, sc.icon
+      FROM employee_category_ratings ecr
+      JOIN station_categories sc ON ecr.category_id = sc.id
+      WHERE ecr.employee_id = $1
+      ORDER BY sc.sort_order
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Get category ratings error:', err);
+    res.status(500).json({ error: 'Failed to get category ratings' });
+  }
+});
+
+// ── PUT /api/employees/:id/category-ratings ──
+// Set category rating for an employee
+router.put('/:id/category-ratings', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { categoryId, rating } = req.body;
+    if (!categoryId) return res.status(400).json({ error: 'categoryId required' });
+
+    if (rating === null || rating === 0) {
+      await pool.query(
+        'DELETE FROM employee_category_ratings WHERE employee_id = $1 AND category_id = $2',
+        [req.params.id, categoryId]
+      );
+    } else {
+      await pool.query(`
+        INSERT INTO employee_category_ratings (employee_id, category_id, rating, updated_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (employee_id, category_id) DO UPDATE SET rating = $3, updated_at = NOW()
+      `, [req.params.id, categoryId, rating]);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Set category rating error:', err);
+    res.status(500).json({ error: 'Failed to set category rating' });
+  }
+});
+
+// ── GET /api/employees/all-category-ratings ──
+// Get all category ratings for all employees (for list view)
+router.get('/all-ratings/list', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT ecr.employee_id, ecr.category_id, ecr.rating, sc.name as category_name, sc.icon
+      FROM employee_category_ratings ecr
+      JOIN station_categories sc ON ecr.category_id = sc.id
+      WHERE sc.business_id = $1
+      ORDER BY sc.sort_order
+    `, [req.user.businessId]);
+
+    // Group by employee_id
+    const byEmployee = {};
+    for (const r of rows) {
+      if (!byEmployee[r.employee_id]) byEmployee[r.employee_id] = [];
+      byEmployee[r.employee_id].push(r);
+    }
+    res.json(byEmployee);
+  } catch (err) {
+    console.error('Get all ratings error:', err);
+    res.status(500).json({ error: 'Failed to get ratings' });
+  }
+});
+
 module.exports = router;

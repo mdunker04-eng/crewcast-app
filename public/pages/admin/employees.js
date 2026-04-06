@@ -10,45 +10,28 @@ function formatPhoneNumber(digits) {
   return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
 }
 
-// Render clickable star rating (1-5)
-function renderStarRating(empId, currentRating) {
-  let html = '<span class="star-rating" style="display:inline-flex;gap:1px;cursor:pointer">';
+// Category star rating (inline, compact)
+function renderCatStars(empId, catId, rating, icon, name) {
+  let stars = '';
   for (let i = 1; i <= 5; i++) {
-    const filled = currentRating && i <= currentRating;
-    html += `<span onclick="setEmployeeRating(${empId},${i === currentRating ? 0 : i})"
-      style="font-size:14px;color:${filled ? '#FFD700' : '#475569'};transition:color .15s"
-      onmouseenter="previewStars(this.parentElement,${i})"
-      onmouseleave="resetStars(this.parentElement,${currentRating || 0})">${filled ? '★' : '☆'}</span>`;
+    const filled = rating && i <= rating;
+    stars += `<span onclick="setCatRating(${empId},${catId},${i === rating ? 0 : i})" style="font-size:12px;color:${filled ? '#FFD700' : '#475569'};cursor:pointer">${filled ? '★' : '☆'}</span>`;
   }
-  html += '</span>';
-  return html;
+  return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:1px 6px;border-radius:10px;background:rgba(30,41,59,.6);border:1px solid rgba(51,65,85,.4)" title="${name}"><span style="font-size:11px">${icon}</span>${stars}</span>`;
 }
 
-function previewStars(container, upTo) {
-  const stars = container.querySelectorAll('span');
-  stars.forEach((s, i) => {
-    s.style.color = i < upTo ? '#FFD700' : '#475569';
-    s.textContent = i < upTo ? '★' : '☆';
-  });
-}
-
-function resetStars(container, rating) {
-  const stars = container.querySelectorAll('span');
-  stars.forEach((s, i) => {
-    s.style.color = i < rating ? '#FFD700' : '#475569';
-    s.textContent = i < rating ? '★' : '☆';
-  });
-}
-
-async function setEmployeeRating(empId, rating) {
+async function setCatRating(empId, catId, rating) {
   try {
-    await API.updateEmployee(empId, { rating: rating || null });
-    UI.toast(rating ? `Rating set to ${rating} star${rating > 1 ? 's' : ''}` : 'Rating cleared');
+    await API.setCategoryRating(empId, catId, rating || null);
+    // Update just the rating display without full re-render
     renderAdminEmployees(document.getElementById('app'));
   } catch (err) {
     UI.toast(err.message, 'error');
   }
 }
+
+// Cached categories for the session
+let _cachedCategories = null;
 
 async function renderAdminEmployees(app) {
   app.innerHTML = UI.adminShell('employees', `
@@ -84,15 +67,17 @@ async function renderAdminEmployees(app) {
     const active = employees.filter(e => e.active);
     const inactive = employees.filter(e => !e.active);
 
-    // Fetch station assignments for all active employees in parallel
+    // Fetch station assignments, categories, and ratings in parallel
     const stationData = {};
-    await Promise.all(active.map(async (e) => {
-      try {
-        stationData[e.id] = await API.getEmployeeStations(e.id);
-      } catch (_) {
-        stationData[e.id] = [];
-      }
-    }));
+    const [categories, allRatings] = await Promise.all([
+      API.getCategories().catch(() => []),
+      API.getAllCategoryRatings().catch(() => ({})),
+      ...active.map(async (e) => {
+        try { stationData[e.id] = await API.getEmployeeStations(e.id); }
+        catch (_) { stationData[e.id] = []; }
+      })
+    ]);
+    _cachedCategories = categories;
 
     document.getElementById('employees-content').innerHTML = `
       <div class="stat-grid mb-4">
@@ -109,9 +94,9 @@ async function renderAdminEmployees(app) {
       <div class="card">
         ${active.map(e => {
           const empStations = stationData[e.id] || [];
-          const ranked = empStations.filter(s => s.rank != null).sort((a, b) => a.rank - b.rank);
-          const skills = empStations.filter(s => s.rank == null);
-          const topPrefs = ranked.slice(0, 3);
+          const empRatings = allRatings[e.id] || [];
+          const ratingMap = {};
+          empRatings.forEach(r => { ratingMap[r.category_id] = r.rating; });
 
           return `
           <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px;padding:12px 16px">
@@ -121,26 +106,17 @@ async function renderAdminEmployees(app) {
                   <div class="semi">${e.firstName} ${e.lastName}</div>
                   ${e.role === 'admin' || e.role === 'lead' ? `<span class="badge" style="font-size:10px;padding:2px 6px;background:var(--purple);color:white">${e.role.charAt(0).toUpperCase() + e.role.slice(1)}</span>` : ''}
                 </div>
-                <div class="flex items-center gap-2" style="margin-top:2px">
-                  <span class="text-xs text-muted">${formatPhoneNumber(e.phone)}</span>
-                  ${renderStarRating(e.id, e.rating)}
-                </div>
+                <div class="text-xs text-muted" style="margin-top:1px">${formatPhoneNumber(e.phone)}${empStations.length > 0 ? ` · ${empStations.length} station${empStations.length !== 1 ? 's' : ''}` : ''}</div>
               </div>
               <div class="flex items-center gap-2">
                 ${e.hasPin ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Invited</span>'}
                 <button class="btn btn-ghost btn-sm" onclick="showEmployeeOptions(${e.id}, '${e.firstName}', '${e.lastName}', '${e.inviteToken}', ${e.hasPin})">...</button>
               </div>
             </div>
-            ${empStations.length > 0 ? `
+            ${categories.length > 0 ? `
             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px">
-              ${topPrefs.map((s, i) => {
-                const colors = ['#FFD700', '#C0C0C0', '#CD7F32'];
-                return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 8px;border-radius:12px;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.2);color:var(--text-primary)"><span style="color:${colors[i]};font-weight:600">#${i+1}</span> ${s.station_name}</span>`;
-              }).join('')}
-              ${skills.map(s => `<span style="font-size:11px;padding:2px 8px;border-radius:12px;background:rgba(30,41,59,.8);border:1px solid rgba(51,65,85,.5);color:var(--text-muted)">${s.station_name}</span>`).join('')}
-              ${ranked.length > 3 ? `<span style="font-size:10px;padding:2px 6px;color:var(--text-muted)">+${ranked.length - 3} more</span>` : ''}
-            </div>` : `
-            <div style="font-size:11px;color:var(--text-muted);font-style:italic;margin-top:2px">No stations assigned</div>`}
+              ${categories.map(cat => renderCatStars(e.id, cat.id, ratingMap[cat.id] || 0, cat.icon, cat.name)).join('')}
+            </div>` : ''}
           </div>
         `;}).join('')}
       </div>
