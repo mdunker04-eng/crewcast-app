@@ -315,6 +315,7 @@ async function saveNewStation() {
     UI.closeModal();
     UI.toast('Station added!');
     await loadStations();
+    showContinueSetup();
   } catch (err) {
     UI.toast(err.message, 'error');
   }

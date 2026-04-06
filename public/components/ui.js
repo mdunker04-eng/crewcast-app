@@ -193,6 +193,25 @@ const UI = {
   },
 };
 
+// ── Continue Setup Banner (shown after completing a step) ──
+function showContinueSetup() {
+  // Remove any existing banner
+  const existing = document.getElementById('continue-setup-banner');
+  if (existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'continue-setup-banner';
+  banner.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:150;animation:slideUp .3s ease';
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;background:var(--bg-card);border:1px solid var(--green);border-radius:12px;padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,.4)">
+      <span style="color:var(--green-text);font-size:14px;font-weight:600">✅ Done!</span>
+      <button class="btn btn-primary btn-sm" onclick="Router.navigate('/admin/welcome');document.getElementById('continue-setup-banner')?.remove()">Continue Setup →</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('continue-setup-banner')?.remove()" style="padding:4px 8px;font-size:16px">&times;</button>
+    </div>
+  `;
+  document.body.appendChild(banner);
+}
+
 // ── SVG Icons ──
 const SVG = {
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>',

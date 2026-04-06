@@ -1,7 +1,10 @@
 // ═══════════════════════════════════════════════════════
 // CrewCast — Admin Welcome / Getting Started Page
 // Shows on first login or when setup steps incomplete
+// Auto-advances to next incomplete step
 // ═══════════════════════════════════════════════════════
+
+let welcomeSteps = [];
 
 async function renderAdminWelcome(app) {
   app.innerHTML = UI.adminShell('welcome', `
@@ -12,47 +15,48 @@ async function renderAdminWelcome(app) {
   const main = document.getElementById('admin-welcome');
 
   try {
-    // Load current state to determine checklist progress
     const [stations, employees, settings] = await Promise.all([
       API.getStations(),
       API.getEmployees(),
       API.getSettings().catch(() => ({})),
     ]);
 
-    const schedules = []; // We'll check if any schedules exist
     let hasSchedules = false;
     try {
       const s = await API.getSchedules();
       hasSchedules = s && s.length > 0;
-    } catch (e) { /* no schedules yet */ }
+    } catch (e) {}
 
-    const steps = [
+    const activeStations = stations.filter(s => s.active);
+    const activeEmployees = employees.filter(e => e.active && e.role !== 'admin' && e.role !== 'owner');
+
+    welcomeSteps = [
       {
         id: 'settings',
         title: 'Complete your Settings',
         desc: 'Fill in business name, operating hours, and scheduling rules.',
         done: !!(settings.businessName && settings.operatingHoursOpen),
         action: '/admin/settings',
-        actionLabel: 'Open Settings',
         icon: '⚙️',
+        doneDetail: settings.businessName ? `Business: ${settings.businessName}` : '',
       },
       {
         id: 'stations',
         title: 'Set up stations',
         desc: 'Add the work areas where employees get assigned (e.g., Register, Kitchen, Floor).',
-        done: stations.filter(s => s.active).length >= 2,
+        done: activeStations.length >= 2,
         action: '/admin/stations',
-        actionLabel: 'Manage Stations',
         icon: '📍',
+        doneDetail: activeStations.length > 0 ? `${activeStations.length} station${activeStations.length > 1 ? 's' : ''} active` : '',
       },
       {
         id: 'employees',
         title: 'Add your team',
         desc: 'Add employees and assign them to stations they\'re trained on. Each gets an invite link.',
-        done: employees.filter(e => e.active && e.role !== 'admin' && e.role !== 'owner').length >= 1,
+        done: activeEmployees.length >= 1,
         action: '/admin/employees',
-        actionLabel: 'Manage Team',
         icon: '👥',
+        doneDetail: activeEmployees.length > 0 ? `${activeEmployees.length} team member${activeEmployees.length > 1 ? 's' : ''} added` : '',
       },
       {
         id: 'schedule',
@@ -60,24 +64,25 @@ async function renderAdminWelcome(app) {
         desc: 'Pick dates and use Auto-Fill to assign employees based on availability and preferences.',
         done: hasSchedules,
         action: '/admin/schedules',
-        actionLabel: 'Create Schedule',
         icon: '📅',
+        doneDetail: hasSchedules ? 'First schedule created' : '',
       },
       {
         id: 'share',
         title: 'Share with your team',
         desc: 'Send employees the app link so they can view schedules, set availability, and swap shifts.',
-        done: false, // Manual step, never auto-completes
+        done: false,
         action: null,
-        actionLabel: null,
         icon: '📲',
+        doneDetail: '',
       },
     ];
 
-    const completedCount = steps.filter(s => s.done).length;
-    const totalSteps = steps.length;
+    const completedCount = welcomeSteps.filter(s => s.done).length;
+    const totalSteps = welcomeSteps.length;
     const progressPct = Math.round((completedCount / totalSteps) * 100);
     const userName = API.user ? API.user.firstName : 'there';
+    const nextStepIdx = welcomeSteps.findIndex(s => !s.done);
 
     main.innerHTML = `
         <!-- Welcome Header -->
@@ -100,20 +105,24 @@ async function renderAdminWelcome(app) {
 
         <!-- Checklist Steps -->
         <div style="display:grid;gap:10px;margin-bottom:20px">
-          ${steps.map((step, idx) => `
-            <div class="card" style="padding:14px 16px;border-left:3px solid ${step.done ? 'var(--green)' : idx === completedCount ? 'var(--purple)' : 'var(--border)'}">
+          ${welcomeSteps.map((step, idx) => {
+            const isNext = idx === nextStepIdx;
+            const isFuture = !step.done && !isNext;
+            return `
+            <div class="card" id="welcome-step-${idx}" style="padding:14px 16px;border-left:3px solid ${step.done ? 'var(--green)' : isNext ? 'var(--purple)' : 'var(--border)'}${isNext ? ';box-shadow:0 0 0 1px rgba(124,58,237,.3)' : ''}">
               <div class="flex items-center gap-3">
-                <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:${step.done ? 'var(--green-bg)' : idx === completedCount ? 'var(--purple-bg)' : 'var(--bg-primary)'}">${step.done ? '✅' : step.icon}</div>
+                <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:${step.done ? 'var(--green-bg)' : isNext ? 'var(--purple-bg)' : 'var(--bg-primary)'}">${step.done ? '✅' : step.icon}</div>
                 <div style="flex:1;min-width:0">
-                  <div class="semi text-sm" style="color:${step.done ? 'var(--green-text)' : 'var(--text-primary)'}">
-                    ${step.done ? '<s>' : ''}${step.title}${step.done ? '</s>' : ''}
+                  <div class="semi text-sm" style="color:${step.done ? 'var(--green-text)' : isFuture ? 'var(--text-muted)' : 'var(--text-primary)'}">
+                    ${step.title}
                   </div>
-                  <div class="text-xs text-muted" style="margin-top:2px">${step.desc}</div>
+                  <div class="text-xs text-muted" style="margin-top:2px">${step.done && step.doneDetail ? step.doneDetail : step.desc}</div>
                 </div>
-                ${step.action && !step.done ? `<button class="btn btn-sm ${idx === completedCount ? 'btn-primary' : 'btn-secondary'}" onclick="Router.navigate('${step.action}')" style="flex-shrink:0">${step.actionLabel}</button>` : ''}
+                ${step.action && isNext ? `<button class="btn btn-primary btn-sm" onclick="Router.navigate('${step.action}')" style="flex-shrink:0">Continue →</button>` : ''}
+                ${step.action && step.done ? `<button class="btn btn-ghost btn-sm" onclick="Router.navigate('${step.action}')" style="flex-shrink:0">Edit</button>` : ''}
               </div>
             </div>
-          `).join('')}
+          `;}).join('')}
         </div>
 
         <!-- Share Section (always visible) -->
@@ -137,6 +146,15 @@ async function renderAdminWelcome(app) {
           <button class="btn btn-ghost" onclick="Router.navigate('/admin')">Skip to Dashboard →</button>
         </div>
     `;
+
+    // Auto-scroll to the next incomplete step
+    if (nextStepIdx > 0) {
+      setTimeout(() => {
+        const el = document.getElementById('welcome-step-' + nextStepIdx);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+
   } catch (err) {
     main.innerHTML = `<div class="page"><div class="card"><p class="text-red">${err.message}</p></div></div>`;
   }

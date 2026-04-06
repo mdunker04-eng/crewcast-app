@@ -120,7 +120,7 @@ async function addEmployee() {
       <div class="form-input text-xs" style="word-break:break-all;cursor:pointer" onclick="copyInviteLink(this)">${result.inviteUrl}</div>
       <p class="text-xs text-muted mt-2">Tap to copy</p>
     `, `
-      <button class="btn btn-primary" onclick="copyInviteLink(document.querySelector('.modal .form-input'));UI.closeModal();renderAdminEmployees(document.getElementById('app'))">Done</button>
+      <button class="btn btn-primary" onclick="copyInviteLink(document.querySelector('.modal .form-input'));UI.closeModal();renderAdminEmployees(document.getElementById('app'));showContinueSetup()">Done</button>
     `);
   } catch (err) {
     UI.toast(err.message, 'error');

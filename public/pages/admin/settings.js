@@ -308,6 +308,7 @@ async function saveAllSettings() {
     _settingsDirty = {};
     UI.toast('Settings saved!');
     if (btn) btn.style.display = 'none';
+    showContinueSetup();
   } catch (err) {
     UI.toast('Failed to save: ' + err.message, 'error');
   } finally {
