@@ -44,6 +44,16 @@ async function renderAdminEmployees(app) {
     const active = employees.filter(e => e.active);
     const inactive = employees.filter(e => !e.active);
 
+    // Fetch station assignments for all active employees in parallel
+    const stationData = {};
+    await Promise.all(active.map(async (e) => {
+      try {
+        stationData[e.id] = await API.getEmployeeStations(e.id);
+      } catch (_) {
+        stationData[e.id] = [];
+      }
+    }));
+
     document.getElementById('employees-content').innerHTML = `
       <div class="stat-grid mb-4">
         <div class="stat-card">
@@ -57,21 +67,39 @@ async function renderAdminEmployees(app) {
       </div>
 
       <div class="card">
-        ${active.map(e => `
-          <div class="list-item">
-            <div>
-              <div class="flex items-center gap-2">
-                <div class="semi">${e.firstName} ${e.lastName}</div>
-                ${e.role === 'admin' || e.role === 'lead' ? `<span class="badge" style="font-size:10px;padding:2px 6px;background:var(--purple);color:white">${e.role.charAt(0).toUpperCase() + e.role.slice(1)}</span>` : ''}
+        ${active.map(e => {
+          const empStations = stationData[e.id] || [];
+          const ranked = empStations.filter(s => s.rank != null).sort((a, b) => a.rank - b.rank);
+          const skills = empStations.filter(s => s.rank == null);
+          const topPrefs = ranked.slice(0, 3);
+
+          return `
+          <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px;padding:12px 16px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div class="flex items-center gap-2">
+                  <div class="semi">${e.firstName} ${e.lastName}</div>
+                  ${e.role === 'admin' || e.role === 'lead' ? `<span class="badge" style="font-size:10px;padding:2px 6px;background:var(--purple);color:white">${e.role.charAt(0).toUpperCase() + e.role.slice(1)}</span>` : ''}
+                </div>
+                <div class="text-xs text-muted">${formatPhoneNumber(e.phone)}</div>
               </div>
-              <div class="text-xs text-muted">${formatPhoneNumber(e.phone)}</div>
+              <div class="flex items-center gap-2">
+                ${e.hasPin ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Invited</span>'}
+                <button class="btn btn-ghost btn-sm" onclick="showEmployeeOptions(${e.id}, '${e.firstName}', '${e.lastName}', '${e.inviteToken}', ${e.hasPin})">...</button>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              ${e.hasPin ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Invited</span>'}
-              <button class="btn btn-ghost btn-sm" onclick="showEmployeeOptions(${e.id}, '${e.firstName}', '${e.lastName}', '${e.inviteToken}', ${e.hasPin})">...</button>
-            </div>
+            ${empStations.length > 0 ? `
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px">
+              ${topPrefs.map((s, i) => {
+                const colors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+                return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 8px;border-radius:12px;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.2);color:var(--text-primary)"><span style="color:${colors[i]};font-weight:600">#${i+1}</span> ${s.station_name}</span>`;
+              }).join('')}
+              ${skills.map(s => `<span style="font-size:11px;padding:2px 8px;border-radius:12px;background:rgba(30,41,59,.8);border:1px solid rgba(51,65,85,.5);color:var(--text-muted)">${s.station_name}</span>`).join('')}
+              ${ranked.length > 3 ? `<span style="font-size:10px;padding:2px 6px;color:var(--text-muted)">+${ranked.length - 3} more</span>` : ''}
+            </div>` : `
+            <div style="font-size:11px;color:var(--text-muted);font-style:italic;margin-top:2px">No stations assigned</div>`}
           </div>
-        `).join('')}
+        `;}).join('')}
       </div>
 
       ${inactive.length > 0 ? `
