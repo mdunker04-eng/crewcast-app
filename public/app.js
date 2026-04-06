@@ -205,7 +205,7 @@ setTimeout(checkIOSInstallHint, 2000);
 
 // ── Register Service Worker for PWA ──
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
+  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
     .then(reg => {
       console.log('Service Worker registered');
       // Check for push notification support

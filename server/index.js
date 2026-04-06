@@ -28,7 +28,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Serve static frontend files
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    }
+  }
+}));
 
 // ── API Routes ──
 app.use('/api/auth', require('./routes/auth'));
