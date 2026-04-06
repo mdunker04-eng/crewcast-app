@@ -275,4 +275,3 @@ async function initDB() {
 }
 
 module.exports = { pool, initDB };
-// deploy trigger 1775508637
