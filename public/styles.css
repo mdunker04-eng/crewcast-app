@@ -10,8 +10,8 @@
   --border: #334155;
   --border-focus: #7C3AED;
   --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
   --purple: #7C3AED;
   --purple-light: #A78BFA;
   --purple-bg: rgba(167,139,250,.15);
@@ -54,9 +54,9 @@ body.admin-mode #app {
 h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
 h2 { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
 h3 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
-.subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
-.text-xs { font-size: 11px; }
-.text-sm { font-size: 12px; }
+.subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+.text-xs { font-size: 12px; }
+.text-sm { font-size: 13px; }
 .text-muted { color: var(--text-muted); }
 .text-green { color: var(--green-text); }
 .text-amber { color: var(--amber-text); }
@@ -544,8 +544,8 @@ select.form-input { appearance: none; cursor: pointer; }
 .mt3 { margin-top: 12px; }
 
 /* Typography extras */
-.text-xs { font-size: 10px; }
-.text-sm { font-size: 12px; }
+.text-xs { font-size: 12px; }
+.text-sm { font-size: 13px; }
 .text-md { font-size: 14px; }
 .bold { font-weight: 700; }
 .text-blue { color: #60A5FA; }
