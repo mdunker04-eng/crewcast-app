@@ -65,7 +65,7 @@ const DEMO_CROWD = {
 // Staffing needs per station per day (derived from CrowdPulse projections)
 const DEMO_NEEDS = {
   'May 2': { admission:4, tulips:6, animals:3, bottles:2, cornpool:2, pillows:2, slide:1, train:2, beeline:1, bakeshop:3, store:2, haycafe:3, parking:4, grounds:2, float:3 },
-  'May 3': { admission:3, tulips:4, animals:2, bottles:1, cornpool:1, pillows:1, slide:1, train:1, beeline:1, bakeshop:2, store:2, haycafe:2, parking:3, grounds:2, float:3 }
+  'May 3': { admission:2, tulips:3, animals:1, bottles:1, cornpool:1, pillows:1, slide:1, train:1, beeline:1, bakeshop:1, store:1, haycafe:1, parking:2, grounds:1, float:2 }
 };
 
 // ── 60-person roster ──

@@ -41,6 +41,10 @@ Router.add('/preferences', (app) => {
   if (f.employeeRankStations === false) return Router.navigate('/', true);
   renderPreferences(app);
 });
+Router.add('/assignments', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  renderAssignmentsEmployee(app);
+});
 
 // Admin routes
 Router.add('/admin/welcome', (app) => {
@@ -77,6 +81,11 @@ Router.add('/admin/settings', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderSettings(app);
+});
+Router.add('/admin/assignments', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderAssignmentsAdmin(app);
 });
 
 // Demo feature views (all require admin)

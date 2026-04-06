@@ -82,6 +82,12 @@ async function renderEmployeeHome(app) {
         </div>
       ` : ''}
 
+      <div style="padding:0 0 12px 0">
+        <button class="btn btn-secondary" style="width:100%" onclick="Router.navigate('/assignments')">
+          ${SVG.calendar} View All Assignments Today
+        </button>
+      </div>
+
       ${shifts.length === 0 ? UI.empty('📋', 'No upcoming shifts', 'Check back later or update your availability') : ''}
     `;
   } catch (err) {
