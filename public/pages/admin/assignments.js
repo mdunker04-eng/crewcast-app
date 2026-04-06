@@ -49,7 +49,7 @@ async function renderAssignmentsContent(selectedDate, isAdminView) {
     const applicableSchedules = schedules.filter(s => {
       const startDate = s.start_date || s.date;
       const endDate = s.end_date || s.date;
-      return selectedDate >= startDate && selectedDate <= endDate && s.status !== 'draft';
+      return selectedDate >= startDate && selectedDate <= endDate;
     });
 
     if (applicableSchedules.length === 0) {
@@ -115,21 +115,8 @@ async function renderAssignmentsContent(selectedDate, isAdminView) {
     // Build the big-screen layout
     let html = '';
 
-    // For admin view, add header with date selector
-    if (isAdminView) {
-      html += `
-        <div class="page-header flex justify-between items-center" style="margin-bottom:20px">
-          <div>
-            <h1 style="margin:0">📋 Today's Assignments</h1>
-            <p class="subtitle" style="margin:4px 0 0 0">${API.user?.businessName || 'CrewCast'}</p>
-          </div>
-          <div class="flex gap2">
-            <input type="date" id="assignment-date-picker" value="${selectedDate}" onchange="window._assignmentDate=this.value;renderAssignmentsAdmin(document.getElementById('app'))" style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text);font-size:14px;cursor:pointer">
-            <button class="btn btn-secondary btn-sm" onclick="window._assignmentDate='${getTodayString()}';renderAssignmentsAdmin(document.getElementById('app'))">Today</button>
-          </div>
-        </div>
-      `;
-    } else {
+    // For employee view, add centered header
+    if (!isAdminView) {
       // Employee view
       html += `
         <div style="text-align:center;margin-bottom:24px">
@@ -226,6 +213,16 @@ async function renderAssignmentsAdmin(app) {
 
   app.innerHTML = UI.adminShell('assignments', `
     <div class="page">
+      <div class="page-header flex justify-between items-center" style="margin-bottom:20px">
+        <div>
+          <h1 style="margin:0">📋 Today's Assignments</h1>
+          <p class="subtitle" style="margin:4px 0 0 0">${API.user?.businessName || 'CrewCast'}</p>
+        </div>
+        <div class="flex gap2">
+          <input type="date" id="assignment-date-picker" value="${selectedDate}" onchange="window._assignmentDate=this.value;renderAssignmentsAdmin(document.getElementById('app'))" style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text);font-size:14px;cursor:pointer">
+          <button class="btn btn-secondary btn-sm" onclick="window._assignmentDate='${getTodayString()}';renderAssignmentsAdmin(document.getElementById('app'))">Today</button>
+        </div>
+      </div>
       <div id="assignments-content">${UI.loading()}</div>
     </div>
   `);
