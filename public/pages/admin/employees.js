@@ -164,6 +164,9 @@ function showEmployeeOptions(id, firstName, lastName, inviteToken, hasPin) {
       <button class="btn btn-primary btn-block" onclick="UI.closeModal();showStationSkillsModal(${id}, '${firstName} ${lastName}')">
         ${SVG.station} Station Skills
       </button>
+      <button class="btn btn-secondary btn-block" onclick="UI.closeModal();showEmpPreferencesModal(${id}, '${firstName} ${lastName}')">
+        ⭐ Preferences &amp; Rankings
+      </button>
       ${!hasPin ? `
         <button class="btn btn-secondary btn-block" onclick="copyInviteLink(this)" data-link="${inviteUrl}">
           Copy Invite Link
@@ -235,6 +238,165 @@ async function deactivateEmployee(id, name) {
     UI.closeModal();
     UI.toast(`${name} deactivated`);
     renderAdminEmployees(document.getElementById('app'));
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Admin: Employee Preferences & Rankings
+// ═══════════════════════════════════════════════════════
+
+let _empPrefData = { empId: null, empName: '', stations: [], allStations: [], ranked: [] };
+
+async function showEmpPreferencesModal(empId, empName) {
+  _empPrefData = { empId, empName, stations: [], allStations: [], ranked: [] };
+
+  UI.showModal(`⭐ ${empName} — Preferences`, `<div id="emp-pref-content">${UI.loading()}</div>`, '');
+
+  try {
+    const [empStations, allStations] = await Promise.all([
+      API.getEmployeeStations(empId),
+      API.getStations(),
+    ]);
+
+    _empPrefData.allStations = allStations.filter(s => s.active);
+    _empPrefData.stations = empStations;
+
+    // Build ranked list (stations with a rank, in order)
+    const ranked = empStations.filter(es => es.rank != null).sort((a, b) => a.rank - b.rank);
+    // Stations they're trained on but haven't ranked
+    const unranked = empStations.filter(es => es.rank == null);
+
+    _empPrefData.ranked = ranked.map(r => r.station_id);
+    _empPrefData.unrankedSkills = unranked.map(r => r.station_id);
+
+    renderEmpPrefUI();
+  } catch (err) {
+    document.getElementById('emp-pref-content').innerHTML = `
+      <div class="text-red text-sm">${err.message}</div>
+    `;
+  }
+}
+
+function renderEmpPrefUI() {
+  const { ranked, unrankedSkills, allStations, stations, empName } = _empPrefData;
+  const stationMap = {};
+  allStations.forEach(s => { stationMap[s.id] = s; });
+
+  // Stations not assigned at all
+  const assignedIds = new Set([...ranked, ...unrankedSkills]);
+  const notAssigned = allStations.filter(s => !assignedIds.has(s.id));
+
+  let html = '';
+
+  // Ranked preferences section
+  if (ranked.length > 0) {
+    html += `<div style="margin-bottom:16px">
+      <div class="semi text-sm" style="margin-bottom:8px">Ranked Preferences</div>
+      <div style="display:grid;gap:6px">`;
+    ranked.forEach((stId, idx) => {
+      const st = stationMap[stId];
+      if (!st) return;
+      const rankColor = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--text-muted)';
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${idx < 3 ? 'rgba(167,139,250,.08)' : 'rgba(30,41,59,.5)'};border:1px solid ${idx < 3 ? 'rgba(167,139,250,.2)' : '#334155'};border-radius:8px">
+        <span class="semi" style="color:${rankColor};font-size:15px;width:28px;text-align:center">#${idx + 1}</span>
+        <div style="flex:1">
+          <div class="semi text-sm">${st.name}</div>
+        </div>
+        <div class="flex gap-1">
+          ${idx > 0 ? `<button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:11px" onclick="empPrefMove(${idx},-1)">▲</button>` : '<span style="width:28px"></span>'}
+          ${idx < ranked.length - 1 ? `<button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:11px" onclick="empPrefMove(${idx},1)">▼</button>` : '<span style="width:28px"></span>'}
+          <button class="btn btn-ghost btn-sm" style="padding:2px 6px;color:var(--red);font-size:11px" onclick="empPrefRemove(${idx})">✕</button>
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  } else {
+    html += `<div style="background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;color:var(--text-muted)">
+      No ranked preferences set. ${empName.split(' ')[0]} hasn't ranked their preferred stations yet, or you can set them below.
+    </div>`;
+  }
+
+  // Trained stations (unranked)
+  if (unrankedSkills.length > 0) {
+    html += `<div style="margin-bottom:16px">
+      <div class="semi text-sm" style="margin-bottom:8px">Trained (not ranked)</div>
+      <div style="display:grid;gap:4px">`;
+    unrankedSkills.forEach(stId => {
+      const st = stationMap[stId];
+      if (!st) return;
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(30,41,59,.5);border:1px solid #334155;border-radius:8px">
+        <div style="flex:1"><span class="text-sm">${st.name}</span></div>
+        <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px" onclick="empPrefAddRank(${stId})">+ Rank</button>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Available stations (not assigned)
+  if (notAssigned.length > 0) {
+    html += `<div style="margin-bottom:12px">
+      <div class="semi text-sm" style="margin-bottom:8px;color:var(--text-muted)">Not assigned</div>
+      <div style="display:grid;gap:4px">`;
+    notAssigned.forEach(st => {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(30,41,59,.3);border:1px solid rgba(51,65,85,.4);border-radius:8px;opacity:.6">
+        <div style="flex:1"><span class="text-sm">${st.name}</span></div>
+        <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px" onclick="empPrefAddNew(${st.id})">+ Add & Rank</button>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  html += `<div class="flex gap-2 mt-3">
+    <button class="btn btn-primary" style="flex:1" onclick="saveEmpPrefs()">Save</button>
+    <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
+  </div>`;
+
+  document.getElementById('emp-pref-content').innerHTML = html;
+}
+
+function empPrefMove(idx, direction) {
+  const r = _empPrefData.ranked;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= r.length) return;
+  [r[idx], r[newIdx]] = [r[newIdx], r[idx]];
+  renderEmpPrefUI();
+}
+
+function empPrefRemove(idx) {
+  const stId = _empPrefData.ranked.splice(idx, 1)[0];
+  // Move back to unranked skills
+  _empPrefData.unrankedSkills.push(stId);
+  renderEmpPrefUI();
+}
+
+function empPrefAddRank(stationId) {
+  _empPrefData.unrankedSkills = _empPrefData.unrankedSkills.filter(id => id !== stationId);
+  _empPrefData.ranked.push(stationId);
+  renderEmpPrefUI();
+}
+
+function empPrefAddNew(stationId) {
+  _empPrefData.ranked.push(stationId);
+  renderEmpPrefUI();
+}
+
+async function saveEmpPrefs() {
+  const { empId, ranked, unrankedSkills } = _empPrefData;
+  // Build the full station list: ranked ones with rank, unranked ones without
+  const stationIds = [];
+  ranked.forEach((stId, idx) => {
+    stationIds.push({ stationId: stId, preferred: idx < 3, rank: idx + 1 });
+  });
+  unrankedSkills.forEach(stId => {
+    stationIds.push({ stationId: stId, preferred: false, rank: null });
+  });
+
+  try {
+    await API.updateEmployeeStations(empId, stationIds);
+    UI.closeModal();
+    UI.toast('Preferences updated!');
   } catch (err) {
     UI.toast(err.message, 'error');
   }

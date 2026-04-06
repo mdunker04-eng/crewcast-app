@@ -252,11 +252,11 @@ router.put('/me/station-preferences', authenticate, async (req, res) => {
 router.get('/:id/stations', authenticate, requireAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT es.*, s.name as station_name
+      SELECT es.*, s.name as station_name, s.description as station_description
       FROM employee_stations es
       JOIN stations s ON es.station_id = s.id
       WHERE es.employee_id = $1
-      ORDER BY s.name
+      ORDER BY es.rank ASC NULLS LAST, s.name
     `, [req.params.id]);
     res.json(rows);
   } catch (err) {
@@ -281,10 +281,13 @@ router.put('/:id/stations', authenticate, requireAdmin, async (req, res) => {
       await client.query('DELETE FROM employee_stations WHERE employee_id = $1', [req.params.id]);
       // Add new
       for (const s of stationIds) {
+        const stId = s.stationId || s;
+        const pref = s.preferred || false;
+        const rank = s.rank || null;
         await client.query(`
-          INSERT INTO employee_stations (employee_id, station_id, preferred)
-          VALUES ($1, $2, $3)
-        `, [req.params.id, s.stationId || s, s.preferred || false]);
+          INSERT INTO employee_stations (employee_id, station_id, preferred, rank)
+          VALUES ($1, $2, $3, $4)
+        `, [req.params.id, stId, pref, rank]);
       }
       await client.query('COMMIT');
     } catch (e) {
