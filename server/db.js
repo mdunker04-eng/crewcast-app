@@ -156,6 +156,11 @@ async function initDB() {
 
     console.log('Database schema initialized');
 
+    // Migration: add rating column to employees
+    try {
+      await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT NULL');
+    } catch (e) { /* column may already exist */ }
+
     // One-time migration: update staff_needed for stations that still have default=5
     // This fixes stations imported before the staff_needed column had proper estimates
     try {

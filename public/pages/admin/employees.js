@@ -10,6 +10,46 @@ function formatPhoneNumber(digits) {
   return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
 }
 
+// Render clickable star rating (1-5)
+function renderStarRating(empId, currentRating) {
+  let html = '<span class="star-rating" style="display:inline-flex;gap:1px;cursor:pointer">';
+  for (let i = 1; i <= 5; i++) {
+    const filled = currentRating && i <= currentRating;
+    html += `<span onclick="setEmployeeRating(${empId},${i === currentRating ? 0 : i})"
+      style="font-size:14px;color:${filled ? '#FFD700' : '#475569'};transition:color .15s"
+      onmouseenter="previewStars(this.parentElement,${i})"
+      onmouseleave="resetStars(this.parentElement,${currentRating || 0})">${filled ? '★' : '☆'}</span>`;
+  }
+  html += '</span>';
+  return html;
+}
+
+function previewStars(container, upTo) {
+  const stars = container.querySelectorAll('span');
+  stars.forEach((s, i) => {
+    s.style.color = i < upTo ? '#FFD700' : '#475569';
+    s.textContent = i < upTo ? '★' : '☆';
+  });
+}
+
+function resetStars(container, rating) {
+  const stars = container.querySelectorAll('span');
+  stars.forEach((s, i) => {
+    s.style.color = i < rating ? '#FFD700' : '#475569';
+    s.textContent = i < rating ? '★' : '☆';
+  });
+}
+
+async function setEmployeeRating(empId, rating) {
+  try {
+    await API.updateEmployee(empId, { rating: rating || null });
+    UI.toast(rating ? `Rating set to ${rating} star${rating > 1 ? 's' : ''}` : 'Rating cleared');
+    renderAdminEmployees(document.getElementById('app'));
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
+}
+
 async function renderAdminEmployees(app) {
   app.innerHTML = UI.adminShell('employees', `
     <div class="page">
@@ -81,7 +121,10 @@ async function renderAdminEmployees(app) {
                   <div class="semi">${e.firstName} ${e.lastName}</div>
                   ${e.role === 'admin' || e.role === 'lead' ? `<span class="badge" style="font-size:10px;padding:2px 6px;background:var(--purple);color:white">${e.role.charAt(0).toUpperCase() + e.role.slice(1)}</span>` : ''}
                 </div>
-                <div class="text-xs text-muted">${formatPhoneNumber(e.phone)}</div>
+                <div class="flex items-center gap-2" style="margin-top:2px">
+                  <span class="text-xs text-muted">${formatPhoneNumber(e.phone)}</span>
+                  ${renderStarRating(e.id, e.rating)}
+                </div>
               </div>
               <div class="flex items-center gap-2">
                 ${e.hasPin ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Invited</span>'}

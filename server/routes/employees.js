@@ -14,7 +14,7 @@ const router = express.Router();
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT id, first_name, last_name, phone, role, skills, active,
+      SELECT id, first_name, last_name, phone, role, skills, active, rating,
              (pin_hash IS NOT NULL) as has_pin, invite_token, created_at
       FROM employees
       WHERE business_id = $1
@@ -31,6 +31,7 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
       active: e.active,
       hasPin: e.has_pin,
       inviteToken: e.invite_token,
+      rating: e.rating,
       createdAt: e.created_at,
     })));
   } catch (err) {
@@ -86,7 +87,7 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
 // Update employee
 router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { firstName, lastName, phone, role, skills, active } = req.body;
+    const { firstName, lastName, phone, role, skills, active, rating } = req.body;
     const { rows } = await pool.query(
       'SELECT * FROM employees WHERE id = $1 AND business_id = $2',
       [req.params.id, req.user.businessId]
@@ -101,8 +102,9 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
         phone = COALESCE($3, phone),
         role = COALESCE($4, role),
         skills = COALESCE($5, skills),
-        active = COALESCE($6, active)
-      WHERE id = $7
+        active = COALESCE($6, active),
+        rating = COALESCE($7, rating)
+      WHERE id = $8
     `, [
       firstName || null,
       lastName || null,
@@ -110,6 +112,7 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
       role || null,
       skills ? JSON.stringify(skills) : null,
       active !== undefined ? active : null,
+      rating !== undefined ? rating : null,
       req.params.id
     ]);
 
