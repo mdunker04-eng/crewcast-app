@@ -234,7 +234,7 @@ function settingsField(key, label, type, placeholder, defaultVal) {
     <div class="form-group">
       <label class="form-label">${label}</label>
       <input type="${type}" class="form-input settings-input" data-key="${key}"
-        value="${val}" placeholder="${placeholder || '(555) 123-4567'}"
+        value="${val}" placeholder="${placeholder || (type === 'tel' ? '(555) 123-4567' : '')}"
         ${phoneHandler}onchange="markSettingDirty('${key}', this.value)">
     </div>
   `;
