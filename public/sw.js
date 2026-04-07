@@ -111,3 +111,4 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+// webhook trigger 1775524410
