@@ -118,7 +118,8 @@ const API = {
 
   // ── Stations ──
   getStations: () => API.get('/api/stations'),
-  getDefaultStations: () => API.get('/api/stations/defaults'),
+  getDefaultStations: (type) => API.get(`/api/stations/defaults${type ? '?type=' + type : ''}`),
+  getTemplates: () => API.get('/api/stations/templates'),
   addStation: (data) => API.post('/api/stations', data),
   bulkAddStations: (stations) => API.post('/api/stations/bulk', { stations }),
   updateStation: (id, data) => API.put(`/api/stations/${id}`, data),

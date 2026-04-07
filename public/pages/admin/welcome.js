@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════════════
 
 let welcomeSteps = [];
+let _templates = [];
 
 async function renderAdminWelcome(app) {
   app.innerHTML = UI.adminShell('welcome', `
@@ -15,11 +16,13 @@ async function renderAdminWelcome(app) {
   const main = document.getElementById('admin-welcome');
 
   try {
-    const [stations, employees, settings] = await Promise.all([
+    const [stations, employees, settings, templates] = await Promise.all([
       API.getStations(),
       API.getEmployees(),
       API.getSettings().catch(() => ({})),
+      API.getTemplates().catch(() => []),
     ]);
+    _templates = templates;
 
     let hasSchedules = false;
     try {
@@ -84,12 +87,40 @@ async function renderAdminWelcome(app) {
     const userName = API.user ? API.user.firstName : 'there';
     const nextStepIdx = welcomeSteps.findIndex(s => !s.done);
 
+    // Show Quick Start only if no stations set up yet
+    const showQuickStart = activeStations.length === 0 && _templates.length > 0;
+
     main.innerHTML = `
         <!-- Welcome Header -->
         <div style="text-align:center;padding:8px 0 24px">
           <h1 style="font-size:24px;margin-bottom:6px">Welcome to CrewCast, ${userName}! 👋</h1>
           <p class="text-muted" style="font-size:14px">Let's get your workforce scheduling up and running.</p>
         </div>
+
+        ${showQuickStart ? `
+        <!-- Quick Start: Choose Business Type -->
+        <div class="card" style="margin-bottom:20px;border:2px solid rgba(124,58,237,.3);background:var(--purple-bg)">
+          <div class="flex items-center gap-2 mb-2">
+            <span style="font-size:18px">⚡</span>
+            <div class="semi text-sm" style="color:var(--purple-light)">Quick Start — Choose Your Industry</div>
+          </div>
+          <p class="text-xs text-muted mb-3">Select your business type to auto-load stations, categories, and staff targets. You can customize everything after.</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px" id="template-grid">
+            ${_templates.map(t => `
+              <button class="card" onclick="applyTemplate('${t.id}')" style="padding:12px;text-align:center;cursor:pointer;border:1px solid var(--border);background:var(--bg-card);transition:all .15s" onmouseenter="this.style.borderColor='var(--purple)'" onmouseleave="this.style.borderColor='var(--border)'">
+                <div style="font-size:28px;margin-bottom:4px">${t.icon}</div>
+                <div class="semi text-xs">${t.label}</div>
+                <div class="text-xs text-muted">${t.stationCount} stations</div>
+              </button>
+            `).join('')}
+            <button class="card" onclick="Router.navigate('/admin/stations')" style="padding:12px;text-align:center;cursor:pointer;border:1px dashed var(--border);background:var(--bg-card)">
+              <div style="font-size:28px;margin-bottom:4px">✏️</div>
+              <div class="semi text-xs">Start Blank</div>
+              <div class="text-xs text-muted">Add your own</div>
+            </button>
+          </div>
+        </div>
+        ` : ''}
 
         <!-- Progress Bar -->
         <div class="card" style="margin-bottom:20px">
@@ -157,6 +188,35 @@ async function renderAdminWelcome(app) {
 
   } catch (err) {
     main.innerHTML = `<div class="page"><div class="card"><p class="text-red">${err.message}</p></div></div>`;
+  }
+}
+
+async function applyTemplate(templateId) {
+  const btn = event.target.closest('button');
+  const grid = document.getElementById('template-grid');
+  if (grid) grid.querySelectorAll('button').forEach(b => b.disabled = true);
+  if (btn) btn.innerHTML = '<div class="semi text-xs">Loading...</div>';
+
+  try {
+    // Fetch template stations from server
+    const stations = await API.getDefaultStations(templateId);
+    if (!stations || stations.length === 0) {
+      UI.toast('No stations in template', 'error');
+      return;
+    }
+    // Bulk import them
+    const result = await API.bulkAddStations(stations);
+    UI.toast(`Added ${result.added} stations! ${result.skipped ? `(${result.skipped} already existed)` : ''}`);
+    // Save the business type in settings
+    const tpl = _templates.find(t => t.id === templateId);
+    if (tpl) {
+      await API.updateSettings({ industryType: templateId, industryLabel: tpl.label }).catch(() => {});
+    }
+    // Re-render the page to update progress
+    renderAdminWelcome(document.getElementById('app'));
+  } catch (err) {
+    UI.toast(err.message, 'error');
+    if (grid) grid.querySelectorAll('button').forEach(b => b.disabled = false);
   }
 }
 
