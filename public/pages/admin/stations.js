@@ -81,7 +81,8 @@ async function loadStations() {
 
     // Summary stats
     const activeStations = stations.filter(s => s.active);
-    const totalStaff = activeStations.reduce((sum, s) => sum + (s.staff_needed || 0), 0);
+    const totalMin = activeStations.reduce((sum, s) => sum + (s.min_staff || 1), 0);
+    const totalMax = activeStations.reduce((sum, s) => sum + (s.max_staff || s.staff_needed || 0), 0);
 
     // Show existing stations with edit capability
     document.getElementById('stations-content').innerHTML = `
@@ -91,8 +92,8 @@ async function loadStations() {
           <div class="stat-value">${activeStations.length}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Total Staff Needed</div>
-          <div class="stat-value">${totalStaff}</div>
+          <div class="stat-label">Staff Range</div>
+          <div class="stat-value">${totalMin}–${totalMax}</div>
         </div>
       </div>
       ${stations.map(s => `
@@ -120,8 +121,8 @@ async function loadStations() {
               <div style="font-size:14px;font-weight:600">${s.arrive_early_minutes} min</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Staff Needed</div>
-              <div style="font-size:14px;font-weight:600">${s.staff_needed}</div>
+              <div class="stat-label">Staff Target</div>
+              <div style="font-size:14px;font-weight:600">${s.min_staff || 1}–${s.max_staff || s.staff_needed}</div>
             </div>
           </div>
           <div class="flex gap-2">
@@ -232,12 +233,21 @@ function showAddStationModal() {
         ${[0,10,15,20,30,45,60].map(m => `<option value="${m}" ${m === _stationDefaults.arriveEarly ? 'selected' : ''}>${m === 0 ? 'No early arrival' : m === 60 ? '1 hour before' : m + ' minutes before'}</option>`).join('')}
       </select>
     </div>
-    <div class="form-group">
-      <label class="form-label">Staff Needed</label>
-      <select id="station-staff" class="form-input">
-        ${generateStaffOptions(5)}
-      </select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label class="form-label">Min Staff</label>
+        <select id="station-min-staff" class="form-input">
+          ${generateStaffOptions(2)}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Max Staff</label>
+        <select id="station-max-staff" class="form-input">
+          ${generateStaffOptions(5)}
+        </select>
+      </div>
     </div>
+    <p class="text-xs text-muted" style="margin-top:-8px">Target range — adjust per client needs</p>
   `, `
     <button class="btn btn-primary" onclick="saveNewStation()">Add Station</button>
     <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
@@ -283,11 +293,19 @@ async function showEditStationModal(stationId) {
           <option value="60" ${s.arrive_early_minutes === 60 ? 'selected' : ''}>1 hour before</option>
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label">Staff Needed</label>
-        <select id="edit-station-staff" class="form-input">
-          ${generateStaffOptions(s.staff_needed)}
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label class="form-label">Min Staff</label>
+          <select id="edit-station-min-staff" class="form-input">
+            ${generateStaffOptions(s.min_staff || Math.max(1, Math.round((s.max_staff || s.staff_needed) * 0.5)))}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Staff</label>
+          <select id="edit-station-max-staff" class="form-input">
+            ${generateStaffOptions(s.max_staff || s.staff_needed)}
+          </select>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Status</label>
@@ -316,7 +334,8 @@ async function saveNewStation() {
       openTime: document.getElementById('station-open').value,
       closeTime: document.getElementById('station-close').value,
       arriveEarlyMinutes: parseInt(document.getElementById('station-early').value),
-      staffNeeded: parseInt(document.getElementById('station-staff').value),
+      minStaff: parseInt(document.getElementById('station-min-staff').value),
+      maxStaff: parseInt(document.getElementById('station-max-staff').value),
     });
     UI.closeModal();
     UI.toast('Station added!');
@@ -335,7 +354,8 @@ async function saveEditStation(id) {
       openTime: document.getElementById('edit-station-open').value,
       closeTime: document.getElementById('edit-station-close').value,
       arriveEarlyMinutes: parseInt(document.getElementById('edit-station-early').value),
-      staffNeeded: parseInt(document.getElementById('edit-station-staff').value),
+      minStaff: parseInt(document.getElementById('edit-station-min-staff').value),
+      maxStaff: parseInt(document.getElementById('edit-station-max-staff').value),
       active: document.getElementById('edit-station-active').value === 'true',
     });
     UI.closeModal();

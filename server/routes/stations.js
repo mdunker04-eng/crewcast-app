@@ -74,12 +74,15 @@ router.get('/defaults', authenticate, async (req, res) => {
 // Add a single station (admin)
 router.post('/', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { name, description, openTime, closeTime, arriveEarlyMinutes, staffNeeded } = req.body;
+    const { name, description, openTime, closeTime, arriveEarlyMinutes, staffNeeded, minStaff, maxStaff } = req.body;
     if (!name) return res.status(400).json({ error: 'Station name required' });
 
+    const maxVal = maxStaff || staffNeeded || 5;
+    const minVal = minStaff || Math.max(1, Math.round(maxVal * 0.5));
+
     const { rows } = await pool.query(`
-      INSERT INTO stations (business_id, name, description, open_time, close_time, arrive_early_minutes, staff_needed)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO stations (business_id, name, description, open_time, close_time, arrive_early_minutes, staff_needed, min_staff, max_staff)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
       req.user.businessId,
@@ -88,7 +91,9 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
       openTime || '09:00',
       closeTime || '17:00',
       arriveEarlyMinutes || 15,
-      staffNeeded || 5
+      maxVal,
+      minVal,
+      maxVal
     ]);
 
     res.json(rows[0]);
@@ -119,9 +124,11 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
       for (let i = 0; i < stations.length; i++) {
         const s = stations[i];
         try {
+          const bMaxVal = s.maxStaff || s.staffNeeded || 5;
+          const bMinVal = s.minStaff || Math.max(1, Math.round(bMaxVal * 0.5));
           await client.query(`
-            INSERT INTO stations (business_id, name, description, open_time, close_time, arrive_early_minutes, staff_needed, sort_order)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO stations (business_id, name, description, open_time, close_time, arrive_early_minutes, staff_needed, min_staff, max_staff, sort_order)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
           `, [
             req.user.businessId,
             s.name.trim(),
@@ -129,7 +136,9 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
             s.openTime || '09:00',
             s.closeTime || '17:00',
             s.arriveEarlyMinutes || 15,
-            s.staffNeeded || 5,
+            bMaxVal,
+            bMinVal,
+            bMaxVal,
             i
           ]);
           added++;
@@ -217,7 +226,7 @@ router.put('/settings', authenticate, requireAdmin, async (req, res) => {
 // Update a station (admin)
 router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { name, description, openTime, closeTime, arriveEarlyMinutes, staffNeeded, active } = req.body;
+    const { name, description, openTime, closeTime, arriveEarlyMinutes, staffNeeded, minStaff, maxStaff, active } = req.body;
 
     const { rows } = await pool.query(
       'SELECT * FROM stations WHERE id = $1 AND business_id = $2',
@@ -233,8 +242,10 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
         close_time = COALESCE($4, close_time),
         arrive_early_minutes = COALESCE($5, arrive_early_minutes),
         staff_needed = COALESCE($6, staff_needed),
-        active = COALESCE($7, active)
-      WHERE id = $8
+        min_staff = COALESCE($7, min_staff),
+        max_staff = COALESCE($8, max_staff),
+        active = COALESCE($9, active)
+      WHERE id = $10
       RETURNING *
     `, [
       name || null,
@@ -242,7 +253,9 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
       openTime || null,
       closeTime || null,
       arriveEarlyMinutes != null ? arriveEarlyMinutes : null,
-      staffNeeded != null ? staffNeeded : null,
+      maxStaff != null ? maxStaff : (staffNeeded != null ? staffNeeded : null),
+      minStaff != null ? minStaff : null,
+      maxStaff != null ? maxStaff : (staffNeeded != null ? staffNeeded : null),
       active != null ? active : null,
       req.params.id
     ]);

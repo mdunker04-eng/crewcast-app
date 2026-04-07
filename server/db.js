@@ -156,6 +156,16 @@ async function initDB() {
 
     console.log('Database schema initialized');
 
+    // Migration: add min_staff / max_staff columns to stations
+    try {
+      await client.query('ALTER TABLE stations ADD COLUMN IF NOT EXISTS min_staff INTEGER DEFAULT 1');
+      await client.query('ALTER TABLE stations ADD COLUMN IF NOT EXISTS max_staff INTEGER DEFAULT NULL');
+      // Backfill: set max_staff from staff_needed where not yet set
+      await client.query('UPDATE stations SET max_staff = staff_needed WHERE max_staff IS NULL AND staff_needed IS NOT NULL');
+      // Backfill: set min_staff to roughly half of max_staff where still default
+      await client.query('UPDATE stations SET min_staff = GREATEST(1, ROUND(max_staff * 0.5)) WHERE min_staff = 1 AND max_staff > 2');
+    } catch (e) { console.log('min/max staff migration note:', e.message); }
+
     // Migration: add rating column to employees
     try {
       await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT NULL');
