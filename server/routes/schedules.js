@@ -5,6 +5,7 @@
 const express = require('express');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { pool } = require('../db');
+const { notifyEmployee, notifyBusinessAdmins } = require('./push');
 
 const router = express.Router();
 
@@ -68,6 +69,8 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
 
     if (rows.length === 0) return res.status(404).json({ error: 'Schedule not found' });
 
+    const oldStatus = rows[0].status;
+
     await pool.query(`
       UPDATE schedules SET
         name = COALESCE($1, name),
@@ -75,6 +78,20 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
         notes = COALESCE($3, notes)
       WHERE id = $4
     `, [name || null, status || null, notes || null, req.params.id]);
+
+    // Auto-notify all assigned employees when schedule is published
+    if (status === 'published' && oldStatus !== 'published') {
+      try {
+        const scheduleName = name || rows[0].name;
+        const { rows: shiftRows } = await pool.query(
+          'SELECT DISTINCT employee_id FROM shifts WHERE schedule_id = $1 AND employee_id IS NOT NULL',
+          [req.params.id]
+        );
+        for (const row of shiftRows) {
+          notifyEmployee(row.employee_id, '📅 New Schedule Posted', `${scheduleName} has been published. Check your shifts!`, `/employee/schedule`).catch(() => {});
+        }
+      } catch (e) { console.log('Publish notify error:', e.message); }
+    }
 
     res.json({ success: true });
   } catch (err) {
@@ -212,6 +229,19 @@ router.put('/:scheduleId/shifts/:shiftId/respond', authenticate, async (req, res
         decline_reason = $3, responded_at = NOW()
       WHERE id = $4
     `, [status, notes || null, status === 'declined' ? (decline_reason || null) : null, req.params.shiftId]);
+
+    // Notify admins when an employee declines a shift
+    if (status === 'declined') {
+      try {
+        const shift = rows[0];
+        const empName = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim();
+        notifyBusinessAdmins(req.user.businessId,
+          '⚠️ Shift Declined',
+          `${empName} declined their ${shift.station || ''} shift on ${shift.date}`,
+          `/admin/schedule/${shift.schedule_id}`
+        ).catch(() => {});
+      } catch (e) {}
+    }
 
     res.json({ success: true, status });
   } catch (err) {

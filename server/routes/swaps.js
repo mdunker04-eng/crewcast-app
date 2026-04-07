@@ -5,6 +5,7 @@
 const express = require('express');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { pool } = require('../db');
+const { notifyEmployee, notifyBusinessAdmins } = require('./push');
 
 const router = express.Router();
 
@@ -77,6 +78,21 @@ router.post('/', authenticate, async (req, res) => {
     // Mark shift as swap-pending
     await pool.query('UPDATE shifts SET status = $1 WHERE id = $2', ['swap-pending', shiftId]);
 
+    // Notify target employee about the swap request
+    const shift = rows[0];
+    const requesterName = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim();
+    if (targetId) {
+      notifyEmployee(targetId, '🔄 Swap Request',
+        `${requesterName} wants to swap their ${shift.station || ''} shift on ${shift.date}`,
+        '/employee/swaps'
+      ).catch(() => {});
+    }
+    // Notify admins
+    notifyBusinessAdmins(req.user.businessId, '🔄 New Swap Request',
+      `${requesterName} requested a swap for ${shift.station || ''} on ${shift.date}`,
+      '/admin/swaps'
+    ).catch(() => {});
+
     res.json({ id: insertRows[0].id, status: 'open' });
   } catch (err) {
     console.error('Create swap error:', err);
@@ -138,6 +154,21 @@ router.put('/:id', authenticate, async (req, res) => {
         [swap.shift_id]
       );
     }
+
+    // Notify requester about swap outcome
+    try {
+      if (status === 'accepted') {
+        notifyEmployee(swap.requester_id, '✅ Swap Accepted',
+          `Your ${swap.station || ''} shift swap on ${swap.date} was accepted!`,
+          '/employee/schedule'
+        ).catch(() => {});
+      } else if (status === 'declined') {
+        notifyEmployee(swap.requester_id, '❌ Swap Declined',
+          `Your ${swap.station || ''} shift swap on ${swap.date} was declined.`,
+          '/employee/swaps'
+        ).catch(() => {});
+      }
+    } catch (e) {}
 
     res.json({ success: true, status });
   } catch (err) {

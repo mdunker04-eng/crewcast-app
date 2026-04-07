@@ -14,6 +14,25 @@ async function renderEmployeeSchedule(app) {
     ${UI.employeeNav('schedule')}
   `;
 
+  // Show notification prompt if not yet enabled
+  if ('PushManager' in window && Notification.permission === 'default') {
+    const banner = document.createElement('div');
+    banner.className = 'card';
+    banner.style.cssText = 'margin-bottom:12px;background:rgba(124,58,237,.1);border:1px solid rgba(167,139,250,.25)';
+    banner.innerHTML = `
+      <div class="flex items-center gap-3">
+        <span style="font-size:22px">🔔</span>
+        <div style="flex:1">
+          <div class="semi text-sm">Enable notifications?</div>
+          <div class="text-xs text-muted">Get alerted when schedules post or shifts change</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="enablePushFromBanner(this)">Enable</button>
+        <button class="btn btn-ghost btn-sm" onclick="this.closest('.card').remove()" style="padding:4px">${SVG.x}</button>
+      </div>
+    `;
+    document.getElementById('schedule-content').before(banner);
+  }
+
   try {
     const shifts = await API.getMyShifts();
 
@@ -176,5 +195,29 @@ async function submitSwap(shiftId) {
     renderEmployeeSchedule(document.getElementById('app'));
   } catch (err) {
     UI.toast(err.message, 'error');
+  }
+}
+
+// Quick push enable from banner
+async function enablePushFromBanner(btn) {
+  try {
+    btn.textContent = '...';
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      btn.closest('.card').remove();
+      return;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const { key } = await API.getVapidKey();
+    if (!key) { btn.closest('.card').remove(); return; }
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(key),
+    });
+    await API.subscribePush(subscription);
+    btn.closest('.card').innerHTML = '<div class="flex items-center gap-2"><span>✅</span><span class="text-sm semi" style="color:var(--green-text)">Notifications enabled!</span></div>';
+    setTimeout(() => btn.closest('.card')?.remove(), 2000);
+  } catch (e) {
+    btn.closest('.card').remove();
   }
 }

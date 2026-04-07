@@ -129,5 +129,32 @@ async function notifyEmployee(employeeId, title, body, url) {
   }
 }
 
+// Helper: notify all admin/owner employees in a business
+async function notifyBusinessAdmins(businessId, title, body, url) {
+  try {
+    const { rows } = await pool.query(`
+      SELECT ps.* FROM push_subscriptions ps
+      JOIN employees e ON ps.employee_id = e.id
+      WHERE e.business_id = $1 AND e.role IN ('admin', 'owner') AND e.active = true
+    `, [businessId]);
+
+    const payload = JSON.stringify({
+      title, body, url: url || '/',
+      icon: '/icons/icon-192.png',
+    });
+
+    for (const sub of rows) {
+      try {
+        await webpush.sendNotification(JSON.parse(sub.subscription), payload);
+      } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await pool.query('DELETE FROM push_subscriptions WHERE id = $1', [sub.id]);
+        }
+      }
+    }
+  } catch (e) { console.log('notifyBusinessAdmins error:', e.message); }
+}
+
 module.exports = router;
 module.exports.notifyEmployee = notifyEmployee;
+module.exports.notifyBusinessAdmins = notifyBusinessAdmins;

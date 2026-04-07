@@ -13,10 +13,21 @@ async function renderPreferences(app) {
         <h1>My Preferences</h1>
         <p class="subtitle">Rank your preferred stations — we'll try to match you</p>
       </div>
+
+      <!-- Notification Settings -->
+      <div class="card" id="notif-settings" style="margin-bottom:16px">
+        <div class="flex items-center gap-2 mb-2">
+          <span style="font-size:18px">🔔</span>
+          <div class="semi text-sm">Push Notifications</div>
+        </div>
+        <div id="notif-status">${UI.loading()}</div>
+      </div>
+
       <div id="pref-content">${UI.loading()}</div>
     </div>
     ${UI.employeeNav('preferences')}
   `;
+  renderNotifStatus();
 
   try {
     const [stations, myPrefs] = await Promise.all([
@@ -127,5 +138,91 @@ async function savePrefRanks() {
     UI.toast('Preferences saved!');
   } catch (err) {
     UI.toast(err.message, 'error');
+  }
+}
+
+// ── Notification Settings ──
+async function renderNotifStatus() {
+  const el = document.getElementById('notif-status');
+  if (!el) return;
+
+  if (!('PushManager' in window) || !('serviceWorker' in navigator)) {
+    el.innerHTML = '<p class="text-xs text-muted">Push notifications are not supported on this browser/device. Try adding the app to your home screen first.</p>';
+    return;
+  }
+
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    // Check if actually subscribed
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        el.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span style="color:var(--green-text)">✅</span>
+            <span class="text-sm">Notifications are <strong>enabled</strong></span>
+          </div>
+          <p class="text-xs text-muted mt-1">You'll get notified when schedules are posted, shifts change, or swap requests come in.</p>
+          <button class="btn btn-ghost btn-sm mt-2" onclick="disablePushNotifs()">Disable Notifications</button>
+        `;
+      } else {
+        el.innerHTML = `
+          <p class="text-sm text-muted">Notifications were allowed but not active.</p>
+          <button class="btn btn-primary btn-sm mt-2" onclick="enablePushNotifs()">🔔 Enable Notifications</button>
+        `;
+      }
+    } catch (e) {
+      el.innerHTML = '<p class="text-xs text-muted">Could not check notification status.</p>';
+    }
+  } else if (perm === 'denied') {
+    el.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span style="color:var(--red)">🔕</span>
+        <span class="text-sm">Notifications are <strong>blocked</strong></span>
+      </div>
+      <p class="text-xs text-muted mt-1">To re-enable, open your browser settings and allow notifications for this site.</p>
+    `;
+  } else {
+    el.innerHTML = `
+      <p class="text-sm">Get notified when new schedules are posted, shifts change, or swap requests come in.</p>
+      <button class="btn btn-primary btn-sm mt-2" onclick="enablePushNotifs()">🔔 Enable Notifications</button>
+    `;
+  }
+}
+
+async function enablePushNotifs() {
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      UI.toast('Notification permission denied', 'error');
+      renderNotifStatus();
+      return;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const { key } = await API.getVapidKey();
+    if (!key) { UI.toast('Push not configured', 'error'); return; }
+
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(key),
+    });
+    await API.subscribePush(subscription);
+    UI.toast('Notifications enabled!');
+    renderNotifStatus();
+  } catch (err) {
+    UI.toast('Failed to enable: ' + err.message, 'error');
+  }
+}
+
+async function disablePushNotifs() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) await sub.unsubscribe();
+    UI.toast('Notifications disabled');
+    renderNotifStatus();
+  } catch (err) {
+    UI.toast('Failed: ' + err.message, 'error');
   }
 }

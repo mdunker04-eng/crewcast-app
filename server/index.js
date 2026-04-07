@@ -11,14 +11,11 @@ const webpush = require('web-push');
 const { initDB } = require('./db');
 const seed = require('./seed');
 
-// Generate VAPID keys on first run if not set
-if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-  console.log('Generating VAPID keys for push notifications...');
-  const vapidKeys = webpush.generateVAPIDKeys();
-  process.env.VAPID_PUBLIC_KEY = vapidKeys.publicKey;
-  process.env.VAPID_PRIVATE_KEY = vapidKeys.privateKey;
-  console.log('VAPID keys generated (set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY env vars to persist)');
-}
+// Permanent VAPID keys — ensures push subscriptions survive redeploys
+const DEFAULT_VAPID_PUBLIC = 'BONZz4rX4iCg2OvUmvQU7qTSdZaxyMDqZhxOlCu0e8JwJ8hE4ma0-WphOC3gg3RwJOXRCXIwbR5dDIu7LrcGU78';
+const DEFAULT_VAPID_PRIVATE = 'Min6NokXaAq1Qnt8cha_lpmPG3dwpQ65b8NhG_FAuQA';
+if (!process.env.VAPID_PUBLIC_KEY) process.env.VAPID_PUBLIC_KEY = DEFAULT_VAPID_PUBLIC;
+if (!process.env.VAPID_PRIVATE_KEY) process.env.VAPID_PRIVATE_KEY = DEFAULT_VAPID_PRIVATE;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
