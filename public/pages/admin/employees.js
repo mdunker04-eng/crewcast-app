@@ -91,6 +91,12 @@ async function renderAdminEmployees(app) {
         </div>
       </div>
 
+      ${categories.length > 0 ? `
+      <div style="display:flex;flex-wrap:wrap;gap:8px 16px;padding:8px 12px;margin-bottom:8px;font-size:11px;color:var(--text-muted);background:rgba(30,41,59,.4);border-radius:8px;border:1px solid rgba(51,65,85,.3)">
+        <span style="font-weight:600;color:var(--text-secondary)">Rating Key:</span>
+        ${categories.map(cat => `<span>${cat.icon} ${cat.name}</span>`).join('')}
+      </div>` : ''}
+
       <div class="card">
         ${active.map(e => {
           const empStations = stationData[e.id] || [];
