@@ -236,18 +236,14 @@ function showAddStationModal() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="form-group">
         <label class="form-label">Min Staff</label>
-        <select id="station-min-staff" class="form-input">
-          ${generateStaffOptions(2)}
-        </select>
+        <input type="number" id="station-min-staff" class="form-input" min="0" value="2" placeholder="0">
       </div>
       <div class="form-group">
         <label class="form-label">Max Staff</label>
-        <select id="station-max-staff" class="form-input">
-          ${generateStaffOptions(5)}
-        </select>
+        <input type="number" id="station-max-staff" class="form-input" min="0" value="5" placeholder="5">
       </div>
     </div>
-    <p class="text-xs text-muted" style="margin-top:-8px">Target range — adjust per client needs</p>
+    <p class="text-xs text-muted" style="margin-top:-8px">Set 0 for no minimum — adjust per client needs</p>
   `, `
     <button class="btn btn-primary" onclick="saveNewStation()">Add Station</button>
     <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
@@ -296,15 +292,11 @@ async function showEditStationModal(stationId) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-group">
           <label class="form-label">Min Staff</label>
-          <select id="edit-station-min-staff" class="form-input">
-            ${generateStaffOptions(s.min_staff || Math.max(1, Math.round((s.max_staff || s.staff_needed) * 0.5)))}
-          </select>
+          <input type="number" id="edit-station-min-staff" class="form-input" min="0" value="${s.min_staff || 0}" placeholder="0">
         </div>
         <div class="form-group">
           <label class="form-label">Max Staff</label>
-          <select id="edit-station-max-staff" class="form-input">
-            ${generateStaffOptions(s.max_staff || s.staff_needed)}
-          </select>
+          <input type="number" id="edit-station-max-staff" class="form-input" min="0" value="${s.max_staff || s.staff_needed || 5}" placeholder="5">
         </div>
       </div>
       <div class="form-group">
