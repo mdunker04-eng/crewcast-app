@@ -320,7 +320,8 @@ async function publishSchedule(scheduleId) {
 
 async function showAutoFillModal(scheduleId) {
   const schedule = window._scheduleData;
-  const emps = window._scheduleEmployees || [];
+  // Exclude admins/leads from auto-fill
+  const emps = (window._scheduleEmployees || []).filter(e => e.role !== 'admin' && e.role !== 'lead');
 
   let stations = [];
   try {
@@ -344,14 +345,29 @@ async function showAutoFillModal(scheduleId) {
     if (settings.employeeRankStations === false) { prefsFeatureEnabled = false; usePreferences = false; }
   } catch (e) {}
 
-  const totalNeeded = stations.reduce((sum, s) => sum + (s.staff_needed || 0), 0);
+  const totalNeeded = stations.reduce((sum, s) => sum + (s.max_staff || s.staff_needed || 0), 0);
+
+  // Build list of all dates in the schedule range
+  const scheduleDates = [];
+  const startD = new Date(schedule.start_date + 'T12:00:00');
+  const endD = new Date(schedule.end_date + 'T12:00:00');
+  for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
+    scheduleDates.push(d.toISOString().split('T')[0]);
+  }
 
   UI.showModal('Auto-Fill Shifts', `
-    <p class="text-sm text-muted mb-3">Select a date and which stations to staff. Employees will be auto-assigned based on staff needed per station.</p>
+    <p class="text-sm text-muted mb-3">Select which dates and stations to staff. Employees will be auto-assigned to each day.</p>
 
     <div class="form-group">
-      <label class="form-label">Date</label>
-      <input type="date" id="autofill-date" class="form-input" value="${schedule.start_date}">
+      <label class="form-label">Dates to Fill</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">
+        ${scheduleDates.map(dt => `
+          <label style="display:flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(30,41,59,.5);border-radius:6px;border:1px solid var(--border);cursor:pointer">
+            <input type="checkbox" class="af-date-cb" value="${dt}" checked style="width:14px;height:14px;accent-color:var(--purple)">
+            <span class="text-sm">${new Date(dt + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+          </label>
+        `).join('')}
+      </div>
     </div>
 
     <div class="form-group">
@@ -428,10 +444,12 @@ function updateAutoFillSummary() {
 }
 
 async function executeAutoFill(scheduleId) {
-  const date = document.getElementById('autofill-date').value;
-  if (!date) { UI.toast('Select a date', 'error'); return; }
+  const dateCbs = document.querySelectorAll('.af-date-cb:checked');
+  const dates = Array.from(dateCbs).map(cb => cb.value);
+  if (dates.length === 0) { UI.toast('Select at least one date', 'error'); return; }
 
-  const emps = window._scheduleEmployees || [];
+  // Exclude admins/leads
+  const emps = (window._scheduleEmployees || []).filter(e => e.role !== 'admin' && e.role !== 'lead');
   if (emps.length === 0) { UI.toast('No employees available', 'error'); return; }
 
   const checked = document.querySelectorAll('.af-station-cb:checked');
@@ -479,11 +497,6 @@ async function executeAutoFill(scheduleId) {
     return score;
   }
 
-  // Build shifts using preference-weighted scoring
-  const shifts = [];
-  const usedEmployees = new Set();
-  let empIndex = 0;
-
   // Collect all station requests
   const stationRequests = [];
   checked.forEach(cb => {
@@ -495,46 +508,49 @@ async function executeAutoFill(scheduleId) {
     });
   });
 
-  // For each station, score all available employees and pick the best
-  stationRequests.forEach(station => {
-    let assigned = 0;
+  // Build shifts for EACH selected date
+  const shifts = [];
+  for (const date of dates) {
+    const usedEmployees = new Set();
+    let empIndex = 0;
 
-    // Score and sort employees for this station
-    const scored = emps
-      .filter(e => !usedEmployees.has(e.id))
-      .map(e => ({ emp: e, score: scoreEmployee(e, station.name) }))
-      .sort((a, b) => b.score - a.score); // highest score first
+    stationRequests.forEach(station => {
+      let assigned = 0;
 
-    // Assign trained/preferred employees first (score > 0)
-    for (const { emp, score } of scored) {
-      if (assigned >= station.needed) break;
-      if (score > 0 && !usedEmployees.has(emp.id)) {
-        shifts.push({ employeeId: emp.id, date, startTime: station.openTime, endTime: station.closeTime, station: station.name });
-        usedEmployees.add(emp.id);
-        assigned++;
+      const scored = emps
+        .filter(e => !usedEmployees.has(e.id))
+        .map(e => ({ emp: e, score: scoreEmployee(e, station.name) }))
+        .sort((a, b) => b.score - a.score);
+
+      for (const { emp, score } of scored) {
+        if (assigned >= station.needed) break;
+        if (score > 0 && !usedEmployees.has(emp.id)) {
+          shifts.push({ employeeId: emp.id, date, startTime: station.openTime, endTime: station.closeTime, station: station.name });
+          usedEmployees.add(emp.id);
+          assigned++;
+        }
       }
-    }
 
-    // Fill remaining with round-robin from unassigned employees
-    while (assigned < station.needed && emps.length > 0) {
-      const emp = emps[empIndex % emps.length];
-      empIndex++;
-      if (empIndex > emps.length * 2) break;
-      if (!usedEmployees.has(emp.id)) {
-        shifts.push({ employeeId: emp.id, date, startTime: station.openTime, endTime: station.closeTime, station: station.name });
-        usedEmployees.add(emp.id);
-        assigned++;
+      while (assigned < station.needed && emps.length > 0) {
+        const emp = emps[empIndex % emps.length];
+        empIndex++;
+        if (empIndex > emps.length * 2) break;
+        if (!usedEmployees.has(emp.id)) {
+          shifts.push({ employeeId: emp.id, date, startTime: station.openTime, endTime: station.closeTime, station: station.name });
+          usedEmployees.add(emp.id);
+          assigned++;
+        }
       }
-    }
-  });
+    });
+  }
 
   try {
     await API.addShifts(scheduleId, shifts);
     UI.closeModal();
     const prefCount = usePreferences ? Object.values(stationSkillMap).reduce((sum, arr) => sum + arr.filter(t => t.rank > 0).length, 0) : 0;
-    let msg = `Generated ${shifts.length} shifts across ${checked.length} stations!`;
-    if (prefCount > 0) msg = `Generated ${shifts.length} shifts (preference-matched where possible)!`;
-    else if (Object.keys(stationSkillMap).length > 0) msg = `Generated ${shifts.length} shifts (skill-matched where possible)!`;
+    let msg = `Generated ${shifts.length} shifts across ${checked.length} stations, ${dates.length} day${dates.length > 1 ? 's' : ''}!`;
+    if (prefCount > 0) msg = `Generated ${shifts.length} shifts across ${dates.length} day${dates.length > 1 ? 's' : ''} (preference-matched)!`;
+    else if (Object.keys(stationSkillMap).length > 0) msg = `Generated ${shifts.length} shifts across ${dates.length} day${dates.length > 1 ? 's' : ''} (skill-matched)!`;
     UI.toast(msg);
     renderScheduleDetail(document.getElementById('app'), { id: scheduleId });
   } catch (err) {

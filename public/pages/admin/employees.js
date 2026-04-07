@@ -220,6 +220,9 @@ function showEmployeeOptions(id, firstName, lastName, inviteToken, hasPin) {
       <button class="btn btn-secondary btn-block" onclick="UI.closeModal();showEmpPreferencesModal(${id}, '${firstName} ${lastName}')">
         ⭐ Preferences &amp; Rankings
       </button>
+      <button class="btn btn-secondary btn-block" onclick="UI.closeModal();showStationRatingsModal(${id}, '${firstName} ${lastName}')">
+        🎯 Rate by Station
+      </button>
       ${!hasPin ? `
         <button class="btn btn-secondary btn-block" onclick="copyInviteLink(this)" data-link="${inviteUrl}">
           Copy Invite Link
@@ -903,5 +906,75 @@ async function executeBulkImport() {
   } catch (err) {
     UI.toast('Import failed: ' + err.message, 'error');
     if (btn) { btn.disabled = false; btn.textContent = `Import ${employees.length} Employees`; }
+  }
+}
+
+// ── Per-Station Ratings Modal ──
+async function showStationRatingsModal(empId, empName) {
+  let empStations = [];
+  let stationRatings = [];
+  try {
+    [empStations, stationRatings] = await Promise.all([
+      API.getEmployeeStations(empId),
+      API.getStationRatings(empId),
+    ]);
+  } catch (e) {}
+
+  if (empStations.length === 0) {
+    UI.showModal(`${empName} — Station Ratings`, `
+      <p class="text-sm text-muted">No stations assigned yet. Assign stations first via "Station Skills".</p>
+    `, `<button class="btn btn-secondary" onclick="UI.closeModal()">Close</button>`);
+    return;
+  }
+
+  const ratingMap = {};
+  stationRatings.forEach(r => { ratingMap[r.station_id] = r.rating; });
+
+  function starsHtml(stationId, current) {
+    let html = '';
+    for (let i = 1; i <= 5; i++) {
+      const filled = current && i <= current;
+      html += `<span onclick="setStationRatingInline(${empId},${stationId},${i === current ? 0 : i})" style="font-size:20px;color:${filled ? '#FFD700' : '#475569'};cursor:pointer;padding:0 1px">${filled ? '★' : '☆'}</span>`;
+    }
+    return html;
+  }
+
+  UI.showModal(`${empName} — Station Ratings`, `
+    <p class="text-sm text-muted mb-3">Rate this employee on each assigned station. These override the category ratings for scheduling.</p>
+    <div id="station-ratings-list">
+      ${empStations.map(s => `
+        <div class="flex justify-between items-center" style="padding:10px 0;border-bottom:1px solid rgba(51,65,85,.3)" id="sr-row-${s.station_id}">
+          <div>
+            <div class="semi text-sm">${s.station_name || s.name}</div>
+            <div class="text-xs text-muted">${s.station_description || ''}</div>
+          </div>
+          <div id="sr-stars-${s.station_id}">${starsHtml(s.station_id, ratingMap[s.station_id] || 0)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `, `<button class="btn btn-secondary" onclick="UI.closeModal()">Done</button>`);
+
+  // Store for inline updates
+  window._srEmpId = empId;
+  window._srRatingMap = ratingMap;
+  window._srEmpStations = empStations;
+}
+
+async function setStationRatingInline(empId, stationId, rating) {
+  try {
+    await API.setStationRating(empId, stationId, rating || null);
+    // Update the stars inline
+    window._srRatingMap[stationId] = rating;
+    const container = document.getElementById(`sr-stars-${stationId}`);
+    if (container) {
+      let html = '';
+      for (let i = 1; i <= 5; i++) {
+        const filled = rating && i <= rating;
+        html += `<span onclick="setStationRatingInline(${empId},${stationId},${i === rating ? 0 : i})" style="font-size:20px;color:${filled ? '#FFD700' : '#475569'};cursor:pointer;padding:0 1px">${filled ? '★' : '☆'}</span>`;
+      }
+      container.innerHTML = html;
+    }
+  } catch (err) {
+    UI.toast(err.message, 'error');
   }
 }

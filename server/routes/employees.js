@@ -417,4 +417,46 @@ router.get('/all-ratings/list', authenticate, requireAdmin, async (req, res) => 
   }
 });
 
+// ── PUT /api/employees/:id/station-rating ──
+// Set per-station rating for an employee
+router.put('/:id/station-rating', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { stationId, rating } = req.body;
+    if (!stationId) return res.status(400).json({ error: 'stationId required' });
+
+    if (rating === null || rating === undefined || rating === 0) {
+      await pool.query(
+        'UPDATE employee_stations SET rating = NULL WHERE employee_id = $1 AND station_id = $2',
+        [req.params.id, stationId]
+      );
+    } else {
+      await pool.query(
+        'UPDATE employee_stations SET rating = $1 WHERE employee_id = $2 AND station_id = $3',
+        [rating, req.params.id, stationId]
+      );
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Set station rating error:', err);
+    res.status(500).json({ error: 'Failed to set station rating' });
+  }
+});
+
+// ── GET /api/employees/:id/station-ratings ──
+// Get per-station ratings for an employee
+router.get('/:id/station-ratings', authenticate, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT es.station_id, es.rating, s.name as station_name
+      FROM employee_stations es
+      JOIN stations s ON es.station_id = s.id
+      WHERE es.employee_id = $1 AND es.rating IS NOT NULL
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Get station ratings error:', err);
+    res.status(500).json({ error: 'Failed to get station ratings' });
+  }
+});
+
 module.exports = router;

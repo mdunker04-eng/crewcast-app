@@ -103,6 +103,10 @@ const API = {
   setCategoryRating: (empId, categoryId, rating) => API.put(`/api/employees/${empId}/category-ratings`, { categoryId, rating }),
   getAllCategoryRatings: () => API.get('/api/employees/all-ratings/list'),
 
+  // ── Per-Station Ratings ──
+  setStationRating: (empId, stationId, rating) => API.put(`/api/employees/${empId}/station-rating`, { stationId, rating }),
+  getStationRatings: (empId) => API.get(`/api/employees/${empId}/station-ratings`),
+
   // ── My Station Preferences (employee self-service) ──
   getMyStationPrefs: () => API.get('/api/employees/me/station-preferences'),
   setMyStationPrefs: (stations) => API.put('/api/employees/me/station-preferences', { stations }),

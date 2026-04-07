@@ -166,6 +166,11 @@ async function initDB() {
       await client.query('UPDATE stations SET min_staff = GREATEST(1, ROUND(max_staff * 0.5)) WHERE min_staff = 1 AND max_staff > 2');
     } catch (e) { console.log('min/max staff migration note:', e.message); }
 
+    // Migration: per-station rating on employee_stations
+    try {
+      await client.query('ALTER TABLE employee_stations ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT NULL');
+    } catch (e) { console.log('station rating col note:', e.message); }
+
     // Migration: add rating column to employees
     try {
       await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT NULL');
