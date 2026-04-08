@@ -116,6 +116,11 @@ Router.add('/admin/compliance', (app) => {
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderCompliance(app);
 });
+Router.add('/admin/labor-dashboard', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderLaborDashboard(app);
+});
 
 // Demo feature views (all require admin)
 const demoRoutes = [

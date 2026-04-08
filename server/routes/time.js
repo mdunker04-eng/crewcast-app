@@ -764,4 +764,87 @@ router.get('/tip-summary', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ── GET /api/time/labor-cost — Labor cost summary for date range (admin) ──
+router.get('/labor-cost', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    const bizId = req.user.businessId;
+    const startDate = start || new Date().toISOString().split('T')[0];
+    const endDate = end || startDate;
+
+    // Get all completed time entries with pay role info
+    const { rows } = await pool.query(`
+      SELECT te.employee_id, e.name as employee_name,
+             te.clock_in, te.clock_out, te.tip_cash, te.tip_card, te.break_minutes,
+             pr.name as role_name, pr.base_rate, pr.is_tipped, pr.overtime_eligible,
+             EXTRACT(EPOCH FROM (te.clock_out - te.clock_in))/3600.0 as raw_hours
+      FROM time_entries te
+      JOIN employees e ON e.id = te.employee_id
+      LEFT JOIN pay_roles pr ON pr.id = te.pay_role_id
+      WHERE te.business_id = $1
+        AND te.clock_out IS NOT NULL
+        AND DATE(te.clock_in) >= $2
+        AND DATE(te.clock_in) <= $3
+      ORDER BY te.clock_in
+    `, [bizId, startDate, endDate]);
+
+    let totalHours = 0;
+    let totalLaborCost = 0;
+    let totalTips = 0;
+    const byRole = {};
+    const byDay = {};
+    const byEmployee = {};
+
+    for (const r of rows) {
+      const breakHrs = (r.break_minutes || 0) / 60;
+      const hours = Math.max(0, (parseFloat(r.raw_hours) || 0) - breakHrs);
+      const rate = parseFloat(r.base_rate) || 0;
+      const cost = hours * rate;
+      const tips = (parseFloat(r.tip_cash) || 0) + (parseFloat(r.tip_card) || 0);
+      const day = new Date(r.clock_in).toISOString().split('T')[0];
+      const roleName = r.role_name || 'Unassigned';
+
+      totalHours += hours;
+      totalLaborCost += cost;
+      totalTips += tips;
+
+      // By role
+      if (!byRole[roleName]) byRole[roleName] = { hours: 0, cost: 0, tips: 0, count: 0 };
+      byRole[roleName].hours += hours;
+      byRole[roleName].cost += cost;
+      byRole[roleName].tips += tips;
+      byRole[roleName].count++;
+
+      // By day
+      if (!byDay[day]) byDay[day] = { hours: 0, cost: 0, tips: 0, entries: 0 };
+      byDay[day].hours += hours;
+      byDay[day].cost += cost;
+      byDay[day].tips += tips;
+      byDay[day].entries++;
+
+      // By employee
+      if (!byEmployee[r.employee_id]) byEmployee[r.employee_id] = { name: r.employee_name, hours: 0, cost: 0, tips: 0, entries: 0 };
+      byEmployee[r.employee_id].hours += hours;
+      byEmployee[r.employee_id].cost += cost;
+      byEmployee[r.employee_id].tips += tips;
+      byEmployee[r.employee_id].entries++;
+    }
+
+    // Round everything
+    const round2 = v => Math.round(v * 100) / 100;
+
+    res.json({
+      period: { start: startDate, end: endDate },
+      totals: { hours: round2(totalHours), laborCost: round2(totalLaborCost), tips: round2(totalTips), entries: rows.length },
+      byRole: Object.entries(byRole).map(([name, d]) => ({ name, hours: round2(d.hours), cost: round2(d.cost), tips: round2(d.tips), shifts: d.count })),
+      byDay: Object.entries(byDay).map(([date, d]) => ({ date, hours: round2(d.hours), cost: round2(d.cost), tips: round2(d.tips), entries: d.entries })),
+      byEmployee: Object.values(byEmployee).map(d => ({ name: d.name, hours: round2(d.hours), cost: round2(d.cost), tips: round2(d.tips), shifts: d.entries }))
+        .sort((a, b) => b.cost - a.cost)
+    });
+  } catch (err) {
+    console.error('Labor cost error:', err);
+    res.status(500).json({ error: 'Failed to get labor cost data' });
+  }
+});
+
 module.exports = router;

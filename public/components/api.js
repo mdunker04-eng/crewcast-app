@@ -139,6 +139,12 @@ const API = {
     return API.get(`/api/time/tip-summary${qs ? '?' + qs : ''}`);
   },
 
+  // ── Labor Cost ──
+  getLaborCost: (params) => {
+    const qs = new URLSearchParams(params).toString();
+    return API.get(`/api/time/labor-cost${qs ? '?' + qs : ''}`);
+  },
+
   // ── Pay Roles ──
   getPayRoles: () => API.get('/api/pay-roles'),
   createPayRole: (data) => API.post('/api/pay-roles', data),
