@@ -41,6 +41,8 @@ app.use('/api/availability', require('./routes/availability'));
 app.use('/api/swaps', require('./routes/swaps'));
 app.use('/api/push', require('./routes/push'));
 app.use('/api/stations', require('./routes/stations'));
+app.use('/api/time', require('./routes/time'));
+app.use('/api/pay-roles', require('./routes/pay-roles'));
 
 // ── Demo page ──
 app.get('/demo', (req, res) => {

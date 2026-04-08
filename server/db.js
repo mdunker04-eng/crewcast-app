@@ -139,6 +139,105 @@ async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+    // ── Time Tracking tables ──
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS time_entries (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        employee_id INTEGER NOT NULL REFERENCES employees(id),
+        shift_id INTEGER REFERENCES shifts(id),
+        station_id INTEGER REFERENCES stations(id),
+        kiosk_id INTEGER,
+        pay_role_id INTEGER,
+        clock_in TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        clock_out TIMESTAMPTZ,
+        clock_in_method VARCHAR(20) DEFAULT 'manual',
+        tip_cash DECIMAL(10,2) DEFAULT 0,
+        tip_card DECIMAL(10,2) DEFAULT 0,
+        break_start TIMESTAMPTZ,
+        break_end TIMESTAMPTZ,
+        break_minutes INTEGER DEFAULT 0,
+        edited_by INTEGER REFERENCES employees(id),
+        edited_at TIMESTAMPTZ,
+        notes TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS kiosks (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        station_id INTEGER REFERENCES stations(id),
+        device_name VARCHAR(100) NOT NULL,
+        pin_code VARCHAR(10),
+        is_active BOOLEAN DEFAULT true,
+        last_seen TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    // ── Pay Roles (restaurant: server, bartender, host, cook, etc.) ──
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pay_roles (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        name VARCHAR(100) NOT NULL,
+        base_rate DECIMAL(10,2) NOT NULL,
+        is_tipped BOOLEAN DEFAULT false,
+        overtime_eligible BOOLEAN DEFAULT true,
+        sort_order INTEGER DEFAULT 0,
+        active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(business_id, name)
+      );
+    `);
+
+    // ── Tip Pool Rules ──
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tip_pool_rules (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        name VARCHAR(100) NOT NULL,
+        pool_percentage DECIMAL(5,2) DEFAULT 100,
+        active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS tip_pool_shares (
+        id SERIAL PRIMARY KEY,
+        rule_id INTEGER NOT NULL REFERENCES tip_pool_rules(id) ON DELETE CASCADE,
+        pay_role_id INTEGER NOT NULL REFERENCES pay_roles(id),
+        share_percentage DECIMAL(5,2) NOT NULL,
+        UNIQUE(rule_id, pay_role_id)
+      );
+    `);
+
+    // ── Break Compliance Config ──
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS break_rules (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        state_code VARCHAR(2) NOT NULL DEFAULT 'US',
+        hours_before_break DECIMAL(4,2) DEFAULT 6,
+        break_duration_minutes INTEGER DEFAULT 30,
+        is_paid BOOLEAN DEFAULT false,
+        active BOOLEAN DEFAULT true,
+        UNIQUE(business_id, state_code)
+      );
+    `);
+
+    // Migration: add restaurant columns to time_entries
+    try {
+      await client.query('ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS pay_role_id INTEGER');
+      await client.query('ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS tip_cash DECIMAL(10,2) DEFAULT 0');
+      await client.query('ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS tip_card DECIMAL(10,2) DEFAULT 0');
+      await client.query('ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS break_start TIMESTAMPTZ');
+      await client.query('ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS break_end TIMESTAMPTZ');
+      await client.query('ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS break_minutes INTEGER DEFAULT 0');
+    } catch (e) { /* columns may already exist */ }
+
+    // Migration: add pay_role_id to employees (default role for scheduling)
+    try {
+      await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS default_pay_role_id INTEGER');
+    } catch (e) { /* column may already exist */ }
+
     // Add staff_needed column if it doesn't exist (table may predate this column)
     await client.query(`
       ALTER TABLE stations ADD COLUMN IF NOT EXISTS staff_needed INTEGER DEFAULT 5

@@ -45,6 +45,7 @@ async function loadTimesheet() {
     // Calculate summary
     let totalHours = 0;
     let openEntries = 0;
+    let totalTips = 0;
     const uniqueEmployees = new Set();
 
     entries.forEach(e => {
@@ -54,6 +55,7 @@ async function loadTimesheet() {
       } else {
         openEntries++;
       }
+      totalTips += (parseFloat(e.tip_cash) || 0) + (parseFloat(e.tip_card) || 0);
     });
 
     if (summary) {
@@ -61,6 +63,7 @@ async function loadTimesheet() {
         <div><div class="text-xs text-muted">Entries</div><div class="semi" style="font-size:20px">${entries.length}</div></div>
         <div><div class="text-xs text-muted">Employees</div><div class="semi" style="font-size:20px">${uniqueEmployees.size}</div></div>
         <div><div class="text-xs text-muted">Total Hours</div><div class="semi" style="font-size:20px">${totalHours.toFixed(1)}h</div></div>
+        <div><div class="text-xs text-muted">Tips</div><div class="semi" style="font-size:20px;color:var(--green,#10b981)">$${totalTips.toFixed(2)}</div></div>
         <div><div class="text-xs text-muted">Still Clocked In</div><div class="semi" style="font-size:20px;${openEntries > 0 ? 'color:var(--amber, #f59e0b)' : ''}">${openEntries}</div></div>
       `;
     }
@@ -80,6 +83,7 @@ async function loadTimesheet() {
               <th>Clock In</th>
               <th>Clock Out</th>
               <th>Hours</th>
+              <th>Tips</th>
               <th>Method</th>
               <th></th>
             </tr>
@@ -89,6 +93,7 @@ async function loadTimesheet() {
               const clockIn = new Date(e.clock_in);
               const clockOut = e.clock_out ? new Date(e.clock_out) : null;
               const hours = clockOut ? ((clockOut - clockIn) / 3600000).toFixed(2) : '---';
+              const tips = (parseFloat(e.tip_cash) || 0) + (parseFloat(e.tip_card) || 0);
               const methodIcon = e.clock_in_method === 'qr_kiosk' ? '&#128247;' : e.clock_in_method === 'qr_mobile' ? '&#128241;' : '&#9997;';
               const isOpen = !clockOut;
 
@@ -99,6 +104,7 @@ async function loadTimesheet() {
                   <td>${clockIn.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</td>
                   <td>${clockOut ? clockOut.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '<span class="badge badge-amber">Active</span>'}</td>
                   <td class="semi">${hours}${!isOpen ? 'h' : ''}</td>
+                  <td>${tips > 0 ? '<span style="color:var(--green,#10b981)">$' + tips.toFixed(2) + '</span>' : '<span class="text-muted">—</span>'}</td>
                   <td style="font-size:16px" title="${e.clock_in_method}">${methodIcon}</td>
                   <td>
                     <button class="btn btn-ghost btn-sm" onclick="editTimeEntry(${e.id}, '${e.clock_in}', '${e.clock_out || ''}', '${(e.notes || '').replace(/'/g, "\\'")}')">Edit</button>

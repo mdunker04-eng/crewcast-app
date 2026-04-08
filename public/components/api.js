@@ -116,6 +116,35 @@ const API = {
   updateSettings: (data) => API.put('/api/stations/settings', data),
   getFeatures: () => API.get('/api/stations/features'),
 
+  // ── Time Tracking ──
+  getQRCode: (empId) => API.get(`/api/time/qr/${empId}`),
+  scanQR: (payload, stationId, kioskId) => API.post('/api/time/scan', { payload, stationId, kioskId }),
+  clockIn: (stationId, roleId) => API.post('/api/time/clock-in', { stationId, roleId }),
+  clockOut: (tipCash, tipCard) => API.post('/api/time/clock-out', { tipCash, tipCard }),
+  getClockStatus: () => API.get('/api/time/status'),
+  getActiveEmployees: () => API.get('/api/time/active'),
+  getTimeEntries: (params) => {
+    const qs = new URLSearchParams(params).toString();
+    return API.get(`/api/time/entries${qs ? '?' + qs : ''}`);
+  },
+  editTimeEntry: (id, data) => API.put(`/api/time/entries/${id}`, data),
+  getTimeDashboard: () => API.get('/api/time/dashboard'),
+  createKiosk: (data) => API.post('/api/time/kiosks', data),
+  getKiosks: () => API.get('/api/time/kiosks'),
+  exportTimesheet: (startDate, endDate) => API.get(`/api/time/export?startDate=${startDate}&endDate=${endDate}`),
+  getBreakAlerts: () => API.get('/api/time/break-alerts'),
+  getOvertimeWarnings: (weekOf) => API.get(`/api/time/overtime-warnings${weekOf ? '?weekOf=' + weekOf : ''}`),
+  getTipSummary: (params) => {
+    const qs = new URLSearchParams(params).toString();
+    return API.get(`/api/time/tip-summary${qs ? '?' + qs : ''}`);
+  },
+
+  // ── Pay Roles ──
+  getPayRoles: () => API.get('/api/pay-roles'),
+  createPayRole: (data) => API.post('/api/pay-roles', data),
+  updatePayRole: (id, data) => API.put(`/api/pay-roles/${id}`, data),
+  deletePayRole: (id) => API.delete(`/api/pay-roles/${id}`),
+
   // ── Stations ──
   getStations: () => API.get('/api/stations'),
   getDefaultStations: (type) => API.get(`/api/stations/defaults${type ? '?type=' + type : ''}`),

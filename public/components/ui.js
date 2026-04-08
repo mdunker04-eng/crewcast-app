@@ -72,7 +72,8 @@ const UI = {
     const tabs = [
       { id: 'home', icon: SVG.home, label: 'Home', path: '/' },
       { id: 'schedule', icon: SVG.calendar, label: 'Schedule', path: '/schedule' },
-      { id: 'availability', icon: SVG.clock, label: 'Availability', path: '/availability' },
+      { id: 'timeclock', icon: SVG.clock, label: 'Clock In', path: '/timeclock' },
+      { id: 'availability', icon: '📅', label: 'Availability', path: '/availability' },
       f.allowSwaps !== false ? { id: 'swaps', icon: SVG.swap, label: 'Swaps', path: '/swaps' } : null,
       f.employeeRankStations !== false ? { id: 'preferences', icon: SVG.star, label: 'Prefs', path: '/preferences' } : null,
     ].filter(Boolean);
@@ -131,6 +132,13 @@ const UI = {
       { id: 'demo-cascade', icon: '🎬', label: 'Live Demo', path: '/admin/demo/cascade' },
       { id: 'demo-swaps', icon: '🔄', label: 'Shift Swaps', path: '/admin/demo/swaps' },
       { id: 'demo-sms', icon: '📱', label: 'SMS Center', path: '/admin/demo/sms' },
+      { section: 'Time Clock' },
+      { id: 'time-dashboard', icon: '📊', label: 'Live Dashboard', path: '/admin/time-dashboard' },
+      { id: 'timesheet', icon: '📋', label: 'Timesheets', path: '/admin/timesheet' },
+      { id: 'kiosk', icon: '📷', label: 'Kiosk Mode', path: '/admin/kiosk' },
+      { section: 'Restaurant' },
+      { id: 'pay-roles', icon: '💰', label: 'Pay Roles', path: '/admin/pay-roles' },
+      { id: 'compliance', icon: '🛡️', label: 'Compliance', path: '/admin/compliance' },
       { section: 'Insights' },
       { id: 'demo-costs', icon: '💰', label: 'Cost of Gaps', path: '/admin/demo/costs' },
       { id: 'demo-alerts', icon: '🚨', label: 'Alerts', path: '/admin/demo/alerts', badge: '5' },

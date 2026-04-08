@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // CrewCast — Employee Time Clock Page
-// Shows QR badge + clock in/out status
+// QR badge, clock in/out with role selection, tip entry, breaks
 // ═══════════════════════════════════════════════════════
 
 async function renderTimeClock(app) {
@@ -20,15 +20,21 @@ async function renderTimeClock(app) {
       API.getQRCode(API.user.id)
     ]);
 
+    // Try to load pay roles (may not exist for orchard-only setups)
+    let payRoles = [];
+    try { payRoles = await API.getPayRoles(); } catch (e) { /* no roles configured */ }
+
     const container = document.getElementById('timeclock-content');
     const clockedIn = statusData.clockedIn;
     const entry = statusData.entry;
 
     let clockedInTime = '';
     let stationName = '';
+    let onBreak = false;
     if (clockedIn && entry) {
       clockedInTime = new Date(entry.clock_in).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
       stationName = entry.station_name || 'No station';
+      onBreak = entry.break_start && !entry.break_end;
     }
 
     container.innerHTML = `
@@ -36,9 +42,29 @@ async function renderTimeClock(app) {
         ${clockedIn ? `
           <div class="card" style="background:var(--green-bg, #d1fae5);border:2px solid var(--green, #10b981);margin-bottom:20px;padding:20px">
             <div style="font-size:40px;margin-bottom:8px">&#9989;</div>
-            <div class="semi" style="font-size:18px;color:var(--green, #10b981)">Clocked In</div>
+            <div class="semi" style="font-size:18px;color:var(--green, #10b981)">${onBreak ? 'On Break' : 'Clocked In'}</div>
             <div class="text-sm text-muted" style="margin-top:4px">Since ${clockedInTime} at ${stationName}</div>
-            <button class="btn btn-danger" style="margin-top:16px" onclick="doClockOut()">Clock Out</button>
+
+            ${onBreak ? `
+              <button class="btn btn-primary" style="margin-top:16px" onclick="doEndBreak()">End Break</button>
+            ` : `
+              <button class="btn btn-secondary btn-sm" style="margin-top:16px" onclick="doStartBreak()">Start Break</button>
+            `}
+
+            <div style="margin-top:16px;border-top:1px solid rgba(0,0,0,0.1);padding-top:16px">
+              <div class="semi" style="margin-bottom:8px">Clock Out</div>
+              <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px">
+                <div style="text-align:left">
+                  <label class="text-xs text-muted">Cash Tips</label>
+                  <input type="number" id="tip-cash" class="input" placeholder="$0.00" step="0.01" min="0" style="width:120px">
+                </div>
+                <div style="text-align:left">
+                  <label class="text-xs text-muted">Card Tips</label>
+                  <input type="number" id="tip-card" class="input" placeholder="$0.00" step="0.01" min="0" style="width:120px">
+                </div>
+              </div>
+              <button class="btn btn-danger" onclick="doClockOut()">Clock Out</button>
+            </div>
           </div>
         ` : `
           <div class="card" style="background:var(--bg-secondary, #1e293b);margin-bottom:20px;padding:20px">
@@ -62,6 +88,14 @@ async function renderTimeClock(app) {
         ${!clockedIn ? `
           <div class="card" style="padding:20px">
             <div class="semi" style="margin-bottom:12px">Manual Clock In</div>
+            ${payRoles.length > 0 ? `
+              <select id="manual-role" class="input" style="margin-bottom:8px">
+                <option value="">Select role</option>
+                ${payRoles.filter(r => r.active).map(r =>
+                  `<option value="${r.id}">${r.name} — $${parseFloat(r.base_rate).toFixed(2)}/hr${r.is_tipped ? ' + tips' : ''}</option>`
+                ).join('')}
+              </select>
+            ` : ''}
             <select id="manual-station" class="input" style="margin-bottom:12px">
               <option value="">Select station (optional)</option>
             </select>
@@ -95,7 +129,8 @@ async function renderTimeClock(app) {
 async function doManualClockIn() {
   try {
     const stationId = document.getElementById('manual-station')?.value || null;
-    await API.clockIn(stationId || undefined);
+    const roleId = document.getElementById('manual-role')?.value || null;
+    await API.clockIn(stationId || undefined, roleId || undefined);
     UI.toast('Clocked in!');
     renderTimeClock(document.getElementById('app'));
   } catch (err) {
@@ -105,7 +140,9 @@ async function doManualClockIn() {
 
 async function doClockOut() {
   try {
-    await API.clockOut();
+    const tipCash = document.getElementById('tip-cash')?.value || 0;
+    const tipCard = document.getElementById('tip-card')?.value || 0;
+    await API.clockOut(tipCash, tipCard);
     UI.toast('Clocked out!');
     renderTimeClock(document.getElementById('app'));
   } catch (err) {
@@ -113,18 +150,34 @@ async function doClockOut() {
   }
 }
 
-// ── Simple QR Code Generator (canvas-based, no dependencies) ──
+async function doStartBreak() {
+  try {
+    await API.post('/api/time/start-break', {});
+    UI.toast('Break started');
+    renderTimeClock(document.getElementById('app'));
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
+}
+
+async function doEndBreak() {
+  try {
+    const result = await API.post('/api/time/end-break', {});
+    UI.toast(`Break ended (${result.breakMinutes} min)`);
+    renderTimeClock(document.getElementById('app'));
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
+}
+
+// ── QR Code Generator ──
 function generateQROnCanvas(canvasId, data) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
-  // We'll use a simple approach: encode data in a QR-like visual
-  // For production, use the qrcode library loaded via CDN
   if (window.QRCode) {
-    // If qrcode lib is available, use it
     QRCode.toCanvas(canvas, data, { width: 200, margin: 2, color: { dark: '#000', light: '#fff' } });
   } else {
-    // Fallback: render the payload as a data URL pattern
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, 200, 200);
@@ -134,7 +187,6 @@ function generateQROnCanvas(canvasId, data) {
     ctx.fillText('QR Code', 100, 90);
     ctx.fillText('Loading...', 100, 110);
 
-    // Dynamically load qrcode lib and render
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
     script.onload = () => {

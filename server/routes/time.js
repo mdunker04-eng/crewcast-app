@@ -136,7 +136,7 @@ router.post('/scan', authenticate, async (req, res) => {
 // ── POST /api/time/clock-in — Manual clock in (employee self-service) ──
 router.post('/clock-in', authenticate, async (req, res) => {
   try {
-    const { stationId } = req.body;
+    const { stationId, roleId } = req.body;
     const empId = req.user.id;
 
     // Check if already clocked in
@@ -155,10 +155,19 @@ router.post('/clock-in', authenticate, async (req, res) => {
       [empId, req.user.businessId, today]
     );
 
+    // Resolve pay role: explicit > employee default > null
+    let payRoleId = roleId || null;
+    if (!payRoleId) {
+      const { rows: empRows } = await pool.query(
+        'SELECT default_pay_role_id FROM employees WHERE id = $1', [empId]
+      );
+      payRoleId = empRows[0]?.default_pay_role_id || null;
+    }
+
     const { rows: entry } = await pool.query(
-      `INSERT INTO time_entries (business_id, employee_id, shift_id, station_id, clock_in, clock_in_method)
-       VALUES ($1, $2, $3, $4, NOW(), 'manual') RETURNING *`,
-      [req.user.businessId, empId, shiftRows[0]?.id || null, stationId || null]
+      `INSERT INTO time_entries (business_id, employee_id, shift_id, station_id, pay_role_id, clock_in, clock_in_method)
+       VALUES ($1, $2, $3, $4, $5, NOW(), 'manual') RETURNING *`,
+      [req.user.businessId, empId, shiftRows[0]?.id || null, stationId || null, payRoleId]
     );
 
     res.json({ action: 'clock_in', entry: entry[0] });
@@ -168,16 +177,20 @@ router.post('/clock-in', authenticate, async (req, res) => {
   }
 });
 
-// ── POST /api/time/clock-out — Manual clock out ──
+// ── POST /api/time/clock-out — Manual clock out (with optional tip entry) ──
 router.post('/clock-out', authenticate, async (req, res) => {
   try {
+    const { tipCash, tipCard } = req.body;
     const { rows: open } = await pool.query(
       'SELECT id FROM time_entries WHERE employee_id = $1 AND business_id = $2 AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1',
       [req.user.id, req.user.businessId]
     );
     if (open.length === 0) return res.status(400).json({ error: 'Not clocked in' });
 
-    await pool.query('UPDATE time_entries SET clock_out = NOW() WHERE id = $1', [open[0].id]);
+    await pool.query(
+      'UPDATE time_entries SET clock_out = NOW(), tip_cash = $2, tip_card = $3 WHERE id = $1',
+      [open[0].id, parseFloat(tipCash) || 0, parseFloat(tipCard) || 0]
+    );
     const { rows: entry } = await pool.query('SELECT * FROM time_entries WHERE id = $1', [open[0].id]);
 
     res.json({ action: 'clock_out', entry: entry[0] });
@@ -305,25 +318,30 @@ router.get('/export', authenticate, requireAdmin, async (req, res) => {
 
     const { rows } = await pool.query(
       `SELECT te.clock_in, te.clock_out, te.clock_in_method, te.notes,
+              te.tip_cash, te.tip_card, te.break_minutes,
               e.first_name, e.last_name, e.phone,
-              s.name as station_name
+              s.name as station_name,
+              pr.name as role_name, pr.base_rate, pr.is_tipped
        FROM time_entries te
        JOIN employees e ON te.employee_id = e.id
        LEFT JOIN stations s ON te.station_id = s.id
+       LEFT JOIN pay_roles pr ON te.pay_role_id = pr.id
        WHERE te.business_id = $1 AND te.clock_in::date >= $2 AND te.clock_in::date <= $3
        ORDER BY e.last_name, e.first_name, te.clock_in`,
       [req.user.businessId, startDate, endDate]
     );
 
     // Build CSV
-    const header = 'Last Name,First Name,Phone,Station,Clock In,Clock Out,Hours,Method,Notes';
+    const header = 'Last Name,First Name,Phone,Role,Base Rate,Station,Clock In,Clock Out,Hours,Break Min,Tip Cash,Tip Card,Total Tips,Method,Notes';
     const csvRows = rows.map(r => {
       const hours = r.clock_out
         ? ((new Date(r.clock_out) - new Date(r.clock_in)) / 3600000).toFixed(2)
         : 'OPEN';
       const clockIn = new Date(r.clock_in).toLocaleString('en-US');
       const clockOut = r.clock_out ? new Date(r.clock_out).toLocaleString('en-US') : '';
-      return `"${r.last_name}","${r.first_name}","${r.phone}","${r.station_name || ''}","${clockIn}","${clockOut}","${hours}","${r.clock_in_method}","${(r.notes || '').replace(/"/g, '""')}"`;
+      const tipCash = parseFloat(r.tip_cash) || 0;
+      const tipCard = parseFloat(r.tip_card) || 0;
+      return `"${r.last_name}","${r.first_name}","${r.phone}","${r.role_name || ''}","${r.base_rate || ''}","${r.station_name || ''}","${clockIn}","${clockOut}","${hours}","${r.break_minutes || 0}","${tipCash.toFixed(2)}","${tipCard.toFixed(2)}","${(tipCash + tipCard).toFixed(2)}","${r.clock_in_method}","${(r.notes || '').replace(/"/g, '""')}"`;
     });
 
     const csv = [header, ...csvRows].join('\n');
@@ -504,6 +522,245 @@ router.post('/kiosk-scan', async (req, res) => {
   } catch (err) {
     console.error('Kiosk scan error:', err);
     res.status(500).json({ error: 'Failed to process kiosk scan' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// Restaurant Features: Break Alerts, Overtime, Tips
+// ═══════════════════════════════════════════════════════
+
+// ── GET /api/time/break-alerts — Employees approaching break threshold (admin) ──
+router.get('/break-alerts', authenticate, requireAdmin, async (req, res) => {
+  try {
+    // Get business break rules (or use defaults)
+    const { rows: rules } = await pool.query(
+      'SELECT * FROM break_rules WHERE business_id = $1 AND active = true LIMIT 1',
+      [req.user.businessId]
+    );
+    const hoursBeforeBreak = rules.length > 0 ? parseFloat(rules[0].hours_before_break) : 6;
+    const breakDuration = rules.length > 0 ? rules[0].break_duration_minutes : 30;
+
+    // Find currently clocked-in employees who haven't taken a break
+    const { rows: active } = await pool.query(
+      `SELECT te.id, te.employee_id, te.clock_in, te.break_start, te.break_end, te.break_minutes,
+              e.first_name, e.last_name, s.name as station_name
+       FROM time_entries te
+       JOIN employees e ON te.employee_id = e.id
+       LEFT JOIN stations s ON te.station_id = s.id
+       WHERE te.business_id = $1 AND te.clock_out IS NULL
+       ORDER BY te.clock_in ASC`,
+      [req.user.businessId]
+    );
+
+    const now = new Date();
+    const alerts = [];
+    for (const entry of active) {
+      const hoursWorked = (now - new Date(entry.clock_in)) / 3600000;
+      const hadBreak = entry.break_minutes > 0 || entry.break_end;
+      const timeUntilRequired = hoursBeforeBreak - hoursWorked;
+
+      if (!hadBreak && hoursWorked >= (hoursBeforeBreak - 0.5)) {
+        alerts.push({
+          entryId: entry.id,
+          employeeId: entry.employee_id,
+          firstName: entry.first_name,
+          lastName: entry.last_name,
+          stationName: entry.station_name,
+          hoursWorked: Math.round(hoursWorked * 100) / 100,
+          severity: hoursWorked >= hoursBeforeBreak ? 'violation' : 'warning',
+          message: hoursWorked >= hoursBeforeBreak
+            ? `Over ${hoursBeforeBreak}h without a ${breakDuration}-min break`
+            : `${Math.round(timeUntilRequired * 60)}min until ${breakDuration}-min break required`
+        });
+      }
+    }
+
+    res.json({
+      alerts,
+      rule: { hoursBeforeBreak, breakDuration, state: rules[0]?.state_code || 'US' }
+    });
+  } catch (err) {
+    console.error('Break alerts error:', err);
+    res.status(500).json({ error: 'Failed to get break alerts' });
+  }
+});
+
+// ── POST /api/time/start-break — Employee starts a break ──
+router.post('/start-break', authenticate, async (req, res) => {
+  try {
+    const { rows: open } = await pool.query(
+      'SELECT id FROM time_entries WHERE employee_id = $1 AND business_id = $2 AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1',
+      [req.user.id, req.user.businessId]
+    );
+    if (open.length === 0) return res.status(400).json({ error: 'Not clocked in' });
+
+    await pool.query('UPDATE time_entries SET break_start = NOW() WHERE id = $1', [open[0].id]);
+    res.json({ success: true, breakStarted: new Date() });
+  } catch (err) {
+    console.error('Start break error:', err);
+    res.status(500).json({ error: 'Failed to start break' });
+  }
+});
+
+// ── POST /api/time/end-break — Employee ends a break ──
+router.post('/end-break', authenticate, async (req, res) => {
+  try {
+    const { rows: open } = await pool.query(
+      'SELECT id, break_start FROM time_entries WHERE employee_id = $1 AND business_id = $2 AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1',
+      [req.user.id, req.user.businessId]
+    );
+    if (open.length === 0) return res.status(400).json({ error: 'Not clocked in' });
+    if (!open[0].break_start) return res.status(400).json({ error: 'No active break' });
+
+    const breakMinutes = Math.round((new Date() - new Date(open[0].break_start)) / 60000);
+    await pool.query(
+      'UPDATE time_entries SET break_end = NOW(), break_minutes = $2 WHERE id = $1',
+      [open[0].id, breakMinutes]
+    );
+    res.json({ success: true, breakMinutes });
+  } catch (err) {
+    console.error('End break error:', err);
+    res.status(500).json({ error: 'Failed to end break' });
+  }
+});
+
+// ── GET /api/time/overtime-warnings — Weekly hours approaching overtime (admin) ──
+router.get('/overtime-warnings', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const weekOf = req.query.weekOf || new Date().toISOString().split('T')[0];
+    // Get Monday of the specified week
+    const d = new Date(weekOf);
+    const day = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const monStr = monday.toISOString().split('T')[0];
+    const sunStr = sunday.toISOString().split('T')[0];
+
+    // Get actual hours worked this week per employee
+    const { rows: worked } = await pool.query(
+      `SELECT te.employee_id, e.first_name, e.last_name,
+              SUM(EXTRACT(EPOCH FROM (COALESCE(te.clock_out, NOW()) - te.clock_in)) / 3600) as hours_worked,
+              COUNT(te.id) as shift_count
+       FROM time_entries te
+       JOIN employees e ON te.employee_id = e.id
+       WHERE te.business_id = $1 AND te.clock_in::date >= $2 AND te.clock_in::date <= $3
+       GROUP BY te.employee_id, e.first_name, e.last_name
+       ORDER BY hours_worked DESC`,
+      [req.user.businessId, monStr, sunStr]
+    );
+
+    // Get scheduled (but not yet worked) hours for rest of week
+    const today = new Date().toISOString().split('T')[0];
+    const { rows: scheduled } = await pool.query(
+      `SELECT sh.employee_id,
+              SUM(EXTRACT(EPOCH FROM (
+                (sh.date || ' ' || sh.end_time)::timestamp -
+                (sh.date || ' ' || sh.start_time)::timestamp
+              )) / 3600) as scheduled_hours
+       FROM shifts sh
+       JOIN schedules sc ON sh.schedule_id = sc.id
+       WHERE sc.business_id = $1 AND sh.date > $2 AND sh.date <= $3 AND sc.status = 'published'
+       GROUP BY sh.employee_id`,
+      [req.user.businessId, today, sunStr]
+    );
+
+    const scheduledMap = {};
+    for (const s of scheduled) {
+      scheduledMap[s.employee_id] = parseFloat(s.scheduled_hours) || 0;
+    }
+
+    const warnings = [];
+    const OT_THRESHOLD = 40;
+    for (const w of worked) {
+      const hoursWorked = parseFloat(w.hours_worked) || 0;
+      const remainingScheduled = scheduledMap[w.employee_id] || 0;
+      const projectedTotal = hoursWorked + remainingScheduled;
+
+      if (hoursWorked >= OT_THRESHOLD) {
+        warnings.push({
+          employeeId: w.employee_id,
+          firstName: w.first_name,
+          lastName: w.last_name,
+          hoursWorked: Math.round(hoursWorked * 100) / 100,
+          projectedTotal: Math.round(projectedTotal * 100) / 100,
+          overtimeHours: Math.round((hoursWorked - OT_THRESHOLD) * 100) / 100,
+          severity: 'overtime',
+          message: `Already at ${hoursWorked.toFixed(1)}h — ${(hoursWorked - OT_THRESHOLD).toFixed(1)}h overtime`
+        });
+      } else if (projectedTotal >= OT_THRESHOLD) {
+        warnings.push({
+          employeeId: w.employee_id,
+          firstName: w.first_name,
+          lastName: w.last_name,
+          hoursWorked: Math.round(hoursWorked * 100) / 100,
+          projectedTotal: Math.round(projectedTotal * 100) / 100,
+          severity: 'warning',
+          message: `At ${hoursWorked.toFixed(1)}h, projected ${projectedTotal.toFixed(1)}h with remaining shifts`
+        });
+      } else if (hoursWorked >= 32) {
+        warnings.push({
+          employeeId: w.employee_id,
+          firstName: w.first_name,
+          lastName: w.last_name,
+          hoursWorked: Math.round(hoursWorked * 100) / 100,
+          projectedTotal: Math.round(projectedTotal * 100) / 100,
+          severity: 'approaching',
+          message: `At ${hoursWorked.toFixed(1)}h — ${(OT_THRESHOLD - hoursWorked).toFixed(1)}h until overtime`
+        });
+      }
+    }
+
+    res.json({ warnings, weekOf: monStr, weekEnd: sunStr });
+  } catch (err) {
+    console.error('Overtime warnings error:', err);
+    res.status(500).json({ error: 'Failed to get overtime warnings' });
+  }
+});
+
+// ── GET /api/time/tip-summary — Tip totals by employee and date range (admin) ──
+router.get('/tip-summary', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) return res.status(400).json({ error: 'startDate and endDate required' });
+
+    const { rows } = await pool.query(
+      `SELECT te.employee_id, e.first_name, e.last_name,
+              pr.name as role_name, pr.is_tipped,
+              COUNT(te.id) as shifts,
+              SUM(EXTRACT(EPOCH FROM (te.clock_out - te.clock_in)) / 3600) as total_hours,
+              SUM(te.tip_cash) as total_tip_cash,
+              SUM(te.tip_card) as total_tip_card,
+              SUM(te.tip_cash + te.tip_card) as total_tips
+       FROM time_entries te
+       JOIN employees e ON te.employee_id = e.id
+       LEFT JOIN pay_roles pr ON te.pay_role_id = pr.id
+       WHERE te.business_id = $1 AND te.clock_in::date >= $2 AND te.clock_in::date <= $3 AND te.clock_out IS NOT NULL
+       GROUP BY te.employee_id, e.first_name, e.last_name, pr.name, pr.is_tipped
+       ORDER BY total_tips DESC`,
+      [req.user.businessId, startDate, endDate]
+    );
+
+    // Calculate totals
+    let grandTotalCash = 0, grandTotalCard = 0;
+    for (const r of rows) {
+      grandTotalCash += parseFloat(r.total_tip_cash) || 0;
+      grandTotalCard += parseFloat(r.total_tip_card) || 0;
+    }
+
+    res.json({
+      employees: rows,
+      totals: {
+        cash: Math.round(grandTotalCash * 100) / 100,
+        card: Math.round(grandTotalCard * 100) / 100,
+        combined: Math.round((grandTotalCash + grandTotalCard) * 100) / 100
+      }
+    });
+  } catch (err) {
+    console.error('Tip summary error:', err);
+    res.status(500).json({ error: 'Failed to get tip summary' });
   }
 });
 

@@ -45,6 +45,10 @@ Router.add('/assignments', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
   renderAssignmentsEmployee(app);
 });
+Router.add('/timeclock', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  renderTimeClock(app);
+});
 
 // Admin routes
 Router.add('/admin/welcome', (app) => {
@@ -86,6 +90,31 @@ Router.add('/admin/assignments', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderAssignmentsAdmin(app);
+});
+Router.add('/admin/time-dashboard', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderTimeDashboard(app);
+});
+Router.add('/admin/timesheet', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderAdminTimesheet(app);
+});
+Router.add('/admin/kiosk', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderKiosk(app);
+});
+Router.add('/admin/pay-roles', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderPayRoles(app);
+});
+Router.add('/admin/compliance', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderCompliance(app);
 });
 
 // Demo feature views (all require admin)
