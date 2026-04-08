@@ -33,7 +33,7 @@ function renderSettingsSections() {
   el.innerHTML = `
     <!-- Section nav pills -->
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px">
-      ${['Business','Hours','Stations','Staffing','Scheduling','Preferences','Swaps','Weather','Communication','Onboarding','Reports','Branding'].map((label, i) =>
+      ${['Business','Hours','Stations','Staffing','Scheduling','Preferences','Swaps','Weather','Integrations','Communication','Onboarding','Reports','Branding'].map((label, i) =>
         `<a href="#settings-sec-${i}" class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 10px">${label}</a>`
       ).join('')}
     </div>
@@ -156,6 +156,19 @@ function renderSettingsSections() {
           'Owner only', 'Any admin', 'Admin + shift leads'
         ])}
       </div>
+    </div>
+
+    <!-- 7b. Reservations & POS Integration -->
+    <div class="card mb-4" id="settings-sec-7b">
+      <div class="card-title mb-3">🍽️ Integrations</div>
+      ${settingsSelect('reservationSystem', 'Reservation System', [
+        'None', 'OpenTable', 'Resy', 'Yelp Reservations', 'Toast Tables', 'SevenRooms', 'Tock', 'Other'
+      ])}
+      ${settingsSelect('posSystem', 'POS System', [
+        'None', 'Toast', 'Square', 'Clover', 'Aloha', 'TouchBistro', 'Lightspeed', 'SpotOn', 'Other'
+      ])}
+      <div class="text-xs text-muted" style="margin-top:-4px;margin-bottom:8px">Integration with reservation and POS systems coming soon. Selecting your systems helps us prioritize.</div>
+      ${settingsField('posApiKey', 'POS API Key (optional)', 'text', 'For future integration')}
     </div>
 
     <!-- 8. Communication -->

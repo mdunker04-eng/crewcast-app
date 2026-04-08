@@ -142,6 +142,7 @@ const UI = {
       { id: 'labor-dashboard', icon: '📊', label: 'Labor Costs', path: '/admin/labor-dashboard' },
       { id: 'tip-pools', icon: '🤝', label: 'Tip Pools', path: '/admin/tip-pools' },
       { id: 'sidework', icon: '📋', label: 'Side Work', path: '/admin/sidework' },
+      { id: 'floor-sections', icon: '🗺️', label: 'Floor Sections', path: '/admin/floor-sections' },
       { section: 'Insights' },
       { id: 'demo-costs', icon: '💰', label: 'Cost of Gaps', path: '/admin/demo/costs' },
       { id: 'demo-alerts', icon: '🚨', label: 'Alerts', path: '/admin/demo/alerts', badge: '5' },

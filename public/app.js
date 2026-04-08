@@ -131,6 +131,11 @@ Router.add('/admin/sidework', (app) => {
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderSidework(app);
 });
+Router.add('/admin/floor-sections', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderFloorSections(app);
+});
 
 // Demo feature views (all require admin)
 const demoRoutes = [
