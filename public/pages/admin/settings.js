@@ -41,10 +41,10 @@ function renderSettingsSections() {
     <!-- 0. Business Basics -->
     <div class="card mb-4" id="settings-sec-0">
       <div class="card-title mb-3">🏢 Business Basics</div>
-      ${settingsField('businessName', 'Business Name', 'text', 'e.g., Center Grove Apple Orchard')}
+      ${settingsField('businessName', 'Business Name', 'text', 'e.g., The Bistro on Main')}
       ${settingsSelect('businessType', 'Business Type', [
-        'Apple Orchard / Pumpkin Patch', 'Farm Market', 'Brewery / Winery', 'Restaurant',
-        'Landscaping', 'Event Venue', 'Amusement / Attraction', 'Other'
+        'Restaurant', 'Bar / Nightclub', 'Brewery / Winery', 'Cafe / Coffee Shop',
+        'Fast Casual', 'Fine Dining', 'Food Truck', 'Catering', 'Other'
       ])}
       ${settingsField('location', 'Location', 'text', 'Address or city/state')}
       ${settingsField('websiteUrl', 'Website URL', 'text', 'https://...')}
@@ -146,8 +146,8 @@ function renderSettingsSections() {
       <div id="weather-opts" style="${s.weatherAffectsStaffing !== false ? '' : 'display:none'}">
         ${settingsTextarea('weatherTriggers', 'What triggers reduced staffing?', 'e.g., rain, thunderstorms, extreme heat, below 40°F...')}
         ${settingsNumber('defaultStormCut', 'Default staff reduction (%)', 10, 90, 50)}
-        ${settingsTextarea('alwaysOpenStations', 'Stations always staffed in bad weather', 'e.g., Country Store, Admission...')}
-        ${settingsTextarea('firstToCloseStations', 'Stations first to close in bad weather', 'e.g., Corn Maze, Apple Picking...')}
+        ${settingsTextarea('alwaysOpenStations', 'Stations always staffed in bad weather', 'e.g., Kitchen, Bar, Host Stand...')}
+        ${settingsTextarea('firstToCloseStations', 'Stations first to close in bad weather', 'e.g., Patio, Outdoor Bar...')}
         ${settingsSelect('stormModeAuth', 'Who can activate storm mode?', [
           'Owner only', 'Any admin', 'Admin + shift leads'
         ])}
@@ -193,7 +193,7 @@ function renderSettingsSections() {
       <div class="card-title mb-3">🎨 Branding & Customization</div>
       ${settingsToggle('showLogo', 'Display business logo in the app')}
       ${settingsField('brandColor', 'Brand color (hex)', 'text', '#7C3AED')}
-      ${settingsField('customDomain', 'Custom URL', 'text', 'e.g., schedule.yourfarm.com')}
+      ${settingsField('customDomain', 'Custom URL', 'text', 'e.g., schedule.yourbusiness.com')}
       ${settingsField('termStation', 'Custom term for "Station"', 'text', 'e.g., Zone, Area, Post')}
       ${settingsField('termEmployee', 'Custom term for "Employee"', 'text', 'e.g., Crew Member, Team Member, Staff')}
     </div>

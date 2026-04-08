@@ -41,7 +41,7 @@ async function loadStations() {
       try { defaults = await API.getDefaultStations(); } catch (e) {}
 
       if (defaults.length > 0) {
-        // Pre-populated setup (e.g. Center Grove)
+        // Pre-populated setup from industry template
         document.getElementById('stations-content').innerHTML = `
           <div class="card">
             <div class="card-title mb-2">Quick Setup</div>
@@ -65,7 +65,7 @@ async function loadStations() {
 
             <div class="form-group">
               <label class="form-label">Quick Add — Paste a List</label>
-              <textarea id="bulk-station-text" class="form-input" rows="6" placeholder="Enter one station per line, e.g.:&#10;Front Gate&#10;Food Court&#10;Gift Shop&#10;Parking&#10;Main Stage"></textarea>
+              <textarea id="bulk-station-text" class="form-input" rows="6" placeholder="Enter one station per line, e.g.:&#10;Host Stand&#10;Server Section A&#10;Bar&#10;Kitchen Line&#10;Dishwasher"></textarea>
             </div>
             <button class="btn btn-primary btn-block mb-3" onclick="bulkAddFromText()">Add All Stations</button>
 
@@ -209,7 +209,7 @@ function showAddStationModal() {
   UI.showModal('Add Station', `
     <div class="form-group">
       <label class="form-label">Station Name</label>
-      <input type="text" id="station-name" class="form-input" placeholder="e.g. Apple Picking">
+      <input type="text" id="station-name" class="form-input" placeholder="e.g. Grill Station">
     </div>
     <div class="form-group">
       <label class="form-label">Description (optional)</label>

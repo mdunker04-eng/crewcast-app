@@ -33,7 +33,7 @@ async function setup() {
     return;
   }
 
-  const businessName = await ask('Business name (e.g. "Center Grove Orchard"): ');
+  const businessName = await ask('Business name (e.g. "The Bistro on Main"): ');
   const slug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
   const ownerName = await ask('Owner/admin name: ');
   const ownerPhone = await ask('Owner/admin phone: ');

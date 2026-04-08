@@ -314,11 +314,10 @@ async function initDB() {
         );
         if (existing.length === 0) {
           const cats = [
-            ['Guest Services', '🎟️', 1],
-            ['Food & Beverage', '🍕', 2],
-            ['Attractions & Activities', '🎢', 3],
-            ['Agriculture & Outdoors', '🌾', 4],
-            ['Facilities & Operations', '🔧', 5],
+            ['Front of House', '🍽️', 1],
+            ['Back of House', '🔪', 2],
+            ['Bar', '🍸', 3],
+            ['Management', '📋', 4],
           ];
           for (const [name, icon, order] of cats) {
             await client.query(
@@ -329,11 +328,10 @@ async function initDB() {
 
           // Auto-assign stations to categories
           const catMap = {
-            'Guest Services': ['Admission', 'Ticketing', 'Country Store', 'Gift Shop', 'Parking', 'Shuttle', 'Admission/Front Gate'],
-            'Food & Beverage': ['Food Stand', 'Bakery', 'Apple Goods', 'Cider Press', 'Taproom', 'Pie Barn'],
-            'Attractions & Activities': ['Corn Maze', 'Hayride', 'Jumping Pillow', 'Super Slide', 'Train Ride', 'Apple Slingshot', 'Corn Pool', 'Pedal Tractors', 'Go-Carts', 'Playground'],
-            'Agriculture & Outdoors': ['Apple Picking', 'Pumpkin Patch', 'Sunflower', 'Nature Trail', 'Farm Animals', 'Petting Zoo'],
-            'Facilities & Operations': ['Potty Barn', 'Fire Pit', 'Storybook', 'Schoolhouse'],
+            'Front of House': ['Host', 'Greeter', 'Server', 'Busser', 'Food Runner', 'Takeout', 'Delivery', 'Cashier'],
+            'Back of House': ['Grill', 'Sauté', 'Prep Cook', 'Fry Station', 'Expo', 'Plating', 'Dishwasher', 'Line Cook'],
+            'Bar': ['Bartender', 'Barback', 'Bar'],
+            'Management': ['Manager', 'Shift Lead', 'Floor Manager', 'Kitchen Manager'],
           };
           const { rows: catRows } = await client.query(
             'SELECT id, name FROM station_categories WHERE business_id = $1', [biz.id]
@@ -363,13 +361,11 @@ async function initDB() {
     // This fixes stations imported before the staff_needed column had proper estimates
     try {
       const staffDefaults = [
-        ['Admission / Ticketing', 15], ['Country Store', 12], ['Apple Picking', 20],
-        ['Pumpkin Patch', 15], ['Corn Maze', 10], ['Hayride / Tractor Ride', 12],
-        ['Food Stand', 25], ['Apple Goods / Bakery', 15], ['Jumping Pillow', 8],
-        ['Super Slide', 8], ['Farm Animals / Petting Zoo', 12], ['Pedal Tractors / Go-Carts', 10],
-        ['Train Ride', 8], ['Apple Slingshot', 6], ['Corn Pool', 8],
-        ['Sunflower Meadow', 6], ['Storybook Land', 6], ['Schoolhouse', 4],
-        ['Fire Pit Area', 8], ['Parking / Shuttle', 20], ['Potty Barn Attendant', 4]
+        ['Host / Greeter', 2], ['Server Section A', 4], ['Server Section B', 4],
+        ['Server Section C', 3], ['Busser', 3], ['Bartender', 3],
+        ['Barback', 2], ['Grill / Sauté', 3], ['Prep Cook', 3],
+        ['Fry Station', 2], ['Expo / Plating', 2], ['Dishwasher', 2],
+        ['Takeout / Delivery', 2]
       ];
       for (const [name, needed] of staffDefaults) {
         if (needed !== 5) {

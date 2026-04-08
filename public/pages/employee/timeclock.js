@@ -20,7 +20,7 @@ async function renderTimeClock(app) {
       API.getQRCode(API.user.id)
     ]);
 
-    // Try to load pay roles (may not exist for orchard-only setups)
+    // Try to load pay roles (may not be configured yet)
     let payRoles = [];
     try { payRoles = await API.getPayRoles(); } catch (e) { /* no roles configured */ }
 

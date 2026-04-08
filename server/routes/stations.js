@@ -165,8 +165,8 @@ const INDUSTRY_TEMPLATES = {
   },
 };
 
-// Legacy alias for Center Grove
-const DEFAULT_STATIONS = INDUSTRY_TEMPLATES.agritourism.stations.map(s => ({
+// Default stations for restaurant version
+const DEFAULT_STATIONS = INDUSTRY_TEMPLATES.restaurant.stations.map(s => ({
   name: s.name, description: s.description, staffNeeded: s.maxStaff,
 }));
 
@@ -194,16 +194,8 @@ router.get('/defaults', authenticate, async (req, res) => {
     if (type && INDUSTRY_TEMPLATES[type]) {
       return res.json(INDUSTRY_TEMPLATES[type].stations);
     }
-    // Check if this is the Center Grove business (legacy)
-    const { rows } = await pool.query(
-      'SELECT slug FROM businesses WHERE id = $1',
-      [req.user.businessId]
-    );
-    const slug = rows[0]?.slug || '';
-    if (slug === 'center-grove' || slug === 'centergrovecider') {
-      return res.json(DEFAULT_STATIONS);
-    }
-    res.json([]);
+    // Default to restaurant stations if no template specified
+    res.json(DEFAULT_STATIONS);
   } catch (err) {
     res.json([]);
   }

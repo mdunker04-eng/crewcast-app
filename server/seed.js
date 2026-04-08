@@ -19,10 +19,10 @@ async function seed() {
   console.log('Empty database detected — seeding default business...');
 
   // Use environment variables if set, otherwise fall back to Steve's defaults
-  const businessName = process.env.SEED_BUSINESS_NAME || 'Center Grove Apple Orchard';
-  const slug = process.env.SEED_BUSINESS_SLUG || 'center-grove-apple-orchard';
-  const ownerName = process.env.SEED_OWNER_NAME || 'Steve';
-  const ownerPhone = process.env.SEED_OWNER_PHONE || '(313) 805-3689';
+  const businessName = process.env.SEED_BUSINESS_NAME || 'Demo Restaurant';
+  const slug = process.env.SEED_BUSINESS_SLUG || 'demo-restaurant';
+  const ownerName = process.env.SEED_OWNER_NAME || 'Owner';
+  const ownerPhone = process.env.SEED_OWNER_PHONE || '(555) 000-0000';
   const pin = process.env.SEED_ADMIN_PIN || '1234';
 
   // Create business

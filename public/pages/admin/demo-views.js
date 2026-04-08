@@ -4,26 +4,26 @@
 // ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════
-// CENTER GROVE ORCHARD — SPRING ON THE FARM DATA
-// Based on real research: centergroveorchard.com, weather data, competing events
+// RESTAURANT DEMO DATA
+// Realistic restaurant staffing scenarios for demo views
 // ═══════════════════════════════════════════════════════════════
 
 const DEMO_STATIONS = [
-  { id:'admission',  name:'Admission/Tickets', icon:'🎟️', open:9,  close:17, indoor:false, revPerHr:420, peak:true,  note:'Gate + wristbands' },
-  { id:'tulips',     name:'Tulip U-Pick',      icon:'🌷', open:9,  close:17, indoor:false, revPerHr:310, peak:true,  note:'400k bulbs, 4-acre field' },
-  { id:'animals',    name:'Baby Animal Barn',   icon:'🐣', open:9,  close:17, indoor:true,  revPerHr:85,  peak:true,  note:'Goats, chicks, ducklings, bunnies' },
-  { id:'bottles',    name:'Bottle Feeding',     icon:'🍼', open:10, close:16, indoor:false, revPerHr:95,  peak:false, note:'$3/bottle, baby goats' },
-  { id:'cornpool',   name:'Corn Pool',          icon:'🌽', open:9,  close:17, indoor:false, revPerHr:0,   peak:false, note:'Included in admission' },
-  { id:'pillows',    name:'Jumping Pillows',    icon:'🤸', open:9,  close:17, indoor:false, revPerHr:0,   peak:false, note:'Included in admission' },
-  { id:'slide',      name:'Super Slide',        icon:'🛝', open:9,  close:17, indoor:false, revPerHr:0,   peak:false, note:'Included in admission' },
-  { id:'train',      name:'CGO Express Train',  icon:'🚂', open:10, close:16, indoor:false, revPerHr:0,   peak:false, note:'Farm loop ride' },
-  { id:'beeline',    name:'Honey Beeline',      icon:'🐝', open:10, close:16, indoor:false, revPerHr:0,   peak:false, note:'Zip line' },
-  { id:'bakeshop',   name:'Bake Shop',          icon:'🧁', open:9,  close:17, indoor:true,  revPerHr:280, peak:true,  note:'Donuts, pies, cider' },
-  { id:'store',      name:'Country Store',      icon:'🏪', open:9,  close:17, indoor:true,  revPerHr:195, peak:true,  note:'Gifts, jams, honey' },
-  { id:'haycafe',    name:'Hay Cafe',           icon:'☕', open:8,  close:16, indoor:true,  revPerHr:220, peak:true,  note:'Breakfast + lunch' },
-  { id:'parking',    name:'Parking/Traffic',     icon:'🅿️', open:8,  close:18, indoor:false, revPerHr:0,   peak:true,  note:'Lot + shuttle' },
-  { id:'grounds',    name:'Grounds/Maint.',     icon:'🔧', open:7,  close:18, indoor:false, revPerHr:0,   peak:false, note:'Trash, repairs, setup' },
-  { id:'float',      name:'Float/General',      icon:'🔄', open:9,  close:17, indoor:false, revPerHr:0,   peak:false, note:'Fill gaps, breaks, surge' },
+  { id:'host',       name:'Host / Greeter',     icon:'🚪', open:11, close:22, indoor:true,  revPerHr:0,   peak:true,  note:'Seating & waitlist' },
+  { id:'serverA',    name:'Server Section A',   icon:'🍽️', open:11, close:22, indoor:true,  revPerHr:320, peak:true,  note:'Main dining room' },
+  { id:'serverB',    name:'Server Section B',   icon:'🍽️', open:11, close:22, indoor:true,  revPerHr:280, peak:true,  note:'Side dining area' },
+  { id:'serverC',    name:'Server Section C',   icon:'☀️', open:11, close:21, indoor:false, revPerHr:250, peak:false, note:'Patio section' },
+  { id:'busser',     name:'Busser',             icon:'🧹', open:11, close:22, indoor:true,  revPerHr:0,   peak:true,  note:'Table clear & reset' },
+  { id:'bartender',  name:'Bartender',          icon:'🍸', open:11, close:23, indoor:true,  revPerHr:410, peak:true,  note:'Full bar service' },
+  { id:'barback',    name:'Barback',            icon:'🧊', open:15, close:23, indoor:true,  revPerHr:0,   peak:false, note:'Bar stocking & support' },
+  { id:'grill',      name:'Grill / Sauté',      icon:'🔥', open:10, close:22, indoor:true,  revPerHr:0,   peak:true,  note:'Hot line - grill & sauté' },
+  { id:'prep',       name:'Prep Cook',          icon:'🔪', open:8,  close:16, indoor:true,  revPerHr:0,   peak:false, note:'Mise en place & prep' },
+  { id:'fry',        name:'Fry Station',        icon:'🍟', open:11, close:22, indoor:true,  revPerHr:0,   peak:true,  note:'Fryer & fried items' },
+  { id:'expo',       name:'Expo / Plating',     icon:'📋', open:11, close:22, indoor:true,  revPerHr:0,   peak:true,  note:'Order assembly & QC' },
+  { id:'dish',       name:'Dishwasher',         icon:'💧', open:10, close:23, indoor:true,  revPerHr:0,   peak:false, note:'Dish pit & sanitation' },
+  { id:'takeout',    name:'Takeout / Delivery', icon:'📦', open:11, close:21, indoor:true,  revPerHr:180, peak:false, note:'Online orders & pickup' },
+  { id:'manager',    name:'Floor Manager',      icon:'👔', open:10, close:23, indoor:true,  revPerHr:0,   peak:true,  note:'Floor oversight & guest recovery' },
+  { id:'float',      name:'Float / Support',    icon:'🔄', open:11, close:22, indoor:true,  revPerHr:0,   peak:false, note:'Fill gaps, breaks, rush support' },
 ];
 
 // ── CrowdPulse Projections ──
@@ -31,41 +31,39 @@ const DEMO_CROWD = {
   'May 2': {
     day:'Saturday', date:'May 2, 2026', dayKey:'Sat',
     weather:{ temp:73, condition:'Sunny', icon:'☀️', wind:'8 mph SW', precip:'5%' },
-    projected: 2800,
-    confidence: 88,
+    projected: 340,
+    confidence: 85,
     factors: [
-      { label:'Opening weekend + tulip peak', impact:'+35%', type:'up' },
-      { label:'Saturday + sunny 73°', impact:'+20%', type:'up' },
-      { label:'Mother\'s Day next week (early gifters)', impact:'+8%', type:'up' },
-      { label:'Amana Maifest starts Sun (minimal Sat impact)', impact:'-2%', type:'down' },
+      { label:'Saturday dinner rush + good weather (patio open)', impact:'+30%', type:'up' },
+      { label:'Derby Day — late crowd after parties', impact:'+15%', type:'up' },
+      { label:'Mother\'s Day next week (some early celebrations)', impact:'+10%', type:'up' },
+      { label:'Competing new restaurant opening nearby', impact:'-5%', type:'down' },
     ],
     competing: [
-      { event:'DSM Book Festival', location:'Des Moines (35 min)', impact:'<2%', threat:'low' },
+      { event:'New Italian place grand opening', location:'2 blocks away', impact:'~5%', threat:'low' },
     ],
-    staffNeeded: 38,
+    staffNeeded: 22,
   },
   'May 3': {
     day:'Sunday', date:'May 3, 2026', dayKey:'Sun',
     weather:{ temp:67, condition:'Partly Cloudy', icon:'⛅', wind:'12 mph NW', precip:'20%' },
-    projected: 2100,
-    confidence: 79,
+    projected: 280,
+    confidence: 78,
     factors: [
-      { label:'Sunday (typically 25% less than Sat)', impact:'-25%', type:'down' },
-      { label:'Cooler temps, wind, cloud cover', impact:'-10%', type:'down' },
-      { label:'Tulip field still peak bloom', impact:'+15%', type:'up' },
-      { label:'Amana Maifest Day 1 — overlapping family crowd', impact:'-8%', type:'down' },
+      { label:'Sunday brunch rush strong', impact:'+20%', type:'up' },
+      { label:'Dinner slower on Sundays (typically -30%)', impact:'-30%', type:'down' },
+      { label:'Patio questionable with rain chance', impact:'-10%', type:'down' },
+      { label:'Mother\'s Day pre-celebrations', impact:'+8%', type:'up' },
     ],
-    competing: [
-      { event:'Amana Colonies Maifest', location:'Amana (45 min E)', impact:'~8%', threat:'medium' },
-    ],
-    staffNeeded: 30,
+    competing: [],
+    staffNeeded: 18,
   }
 };
 
 // Staffing needs per station per day (derived from CrowdPulse projections)
 const DEMO_NEEDS = {
-  'May 2': { admission:4, tulips:6, animals:3, bottles:2, cornpool:2, pillows:2, slide:1, train:2, beeline:1, bakeshop:3, store:2, haycafe:3, parking:4, grounds:2, float:3 },
-  'May 3': { admission:2, tulips:3, animals:1, bottles:1, cornpool:1, pillows:1, slide:1, train:1, beeline:1, bakeshop:1, store:1, haycafe:1, parking:2, grounds:1, float:2 }
+  'May 2': { host:2, serverA:3, serverB:3, serverC:2, busser:2, bartender:2, barback:1, grill:2, prep:2, fry:1, expo:1, dish:1, takeout:1, manager:1, float:1 },
+  'May 3': { host:1, serverA:2, serverB:2, serverC:1, busser:1, bartender:2, barback:1, grill:2, prep:1, fry:1, expo:1, dish:1, takeout:1, manager:1, float:1 }
 };
 
 // ── 60-person roster ──
@@ -259,7 +257,7 @@ function renderDemoDashboardContent() {
   const pendPct = Math.round(pend/allTotal*100);
   const declPct = Math.round(decl/allTotal*100);
 
-  return '<h1>Spring on the Farm — May 2-3, 2026</h1>'+
+  return '<h1>Weekend Schedule — May 2-3, 2026</h1>'+
     '<div class="subtitle">Schedule published Wed Apr 30, 4 PM · 60-person roster · 15 stations · Notifications sent</div>'+
 
     '<div class="grid5 mb4">'+
@@ -861,10 +859,10 @@ function renderDemoSwaps(app) {
 // ═══════════════════════════════════════════════════════
 function renderDemoSmsContent() {
   const msgs = [
-    { dir:'out', to:'All 48 scheduled staff', count:48, msg:'🌷 Spring on the Farm — May 2-3 schedule is live! Check your shifts and reply YES to confirm or NO if you can\'t make it. Respond by Thursday 8 PM.', time:'Wed Apr 30, 4:00 PM' },
-    { dir:'in', from:'Emma Johnson', msg:'YES — both days! See you there 🌷', time:'Wed Apr 30, 5:12 PM' },
+    { dir:'out', to:'All 48 scheduled staff', count:48, msg:'📋 Weekend schedule — May 2-3 is live! Check your shifts and reply YES to confirm or NO if you can\'t make it. Respond by Thursday 8 PM.', time:'Wed Apr 30, 4:00 PM' },
+    { dir:'in', from:'Emma Johnson', msg:'YES — both days! See you there', time:'Wed Apr 30, 5:12 PM' },
     { dir:'in', from:'Morgan Chen', msg:'Yes Saturday works!', time:'Wed Apr 30, 5:30 PM' },
-    { dir:'out', to:'Morgan Chen', msg:'✅ Sat confirmed: Baby Animal Barn 9 AM–5 PM.', time:'Wed Apr 30, 5:31 PM' },
+    { dir:'out', to:'Morgan Chen', msg:'✅ Sat confirmed: Server Section A 11 AM–10 PM.', time:'Wed Apr 30, 5:31 PM' },
     { dir:'in', from:'Jordan Lee', msg:'Sorry can\'t do this weekend — family thing', time:'Wed Apr 30, 8:20 PM' },
     { dir:'out', to:'Steve (You)', msg:'⚠️ Jordan Lee declined Sat Tulip & Sun Animals. Auto-Replace found 5 candidates. Text them?', time:'Wed Apr 30, 8:21 PM' },
     { dir:'in', from:'Taylor Smith', msg:'Confirmed for Sunday!', time:'Thu May 1, 7:30 AM' },
@@ -1146,22 +1144,22 @@ function renderDemoEmployeeContent() {
   return '<h1>👤 Employee View</h1><div class="subtitle">What employees see via their SMS schedule link</div>'+
 
     '<div class="card" style="max-width:400px;margin:0 auto;border-color:rgba(167,139,250,.3)">'+
-      '<div class="text-center mb3"><div class="text-xs text-muted">📱 Phone View</div><div class="semi" style="font-size:15px;margin-top:4px">Spring on the Farm</div><div class="text-xs text-muted">May 2-3 · Center Grove Orchard</div></div>'+
+      '<div class="text-center mb3"><div class="text-xs text-muted">📱 Phone View</div><div class="semi" style="font-size:15px;margin-top:4px">Weekend Schedule</div><div class="text-xs text-muted">May 2-3 · Your Restaurant</div></div>'+
       '<div style="background:#0F172A;border-radius:10px;padding:12px;margin-bottom:10px">'+
         '<div class="flex justify-between items-center mb2"><div class="semi">'+emp.firstName+' '+emp.lastName+'</div><span class="badge badge-green">✓ Confirmed</span></div>'+
         '<div class="text-xs text-muted semi mb1" style="text-transform:uppercase;letter-spacing:.5px">Saturday, May 2</div>'+
-        '<div style="padding:5px 0;border-bottom:1px solid #1E293B" class="flex justify-between"><span class="text-xs text-muted">Station</span><span class="text-xs semi">🌷 Tulip U-Pick</span></div>'+
-        '<div style="padding:5px 0;border-bottom:1px solid #1E293B" class="flex justify-between"><span class="text-xs text-muted">Shift</span><span class="text-xs semi">9:00 AM – 5:00 PM</span></div>'+
+        '<div style="padding:5px 0;border-bottom:1px solid #1E293B" class="flex justify-between"><span class="text-xs text-muted">Station</span><span class="text-xs semi">🍽️ Server Section A</span></div>'+
+        '<div style="padding:5px 0;border-bottom:1px solid #1E293B" class="flex justify-between"><span class="text-xs text-muted">Shift</span><span class="text-xs semi">11:00 AM – 10:00 PM</span></div>'+
         '<div style="padding:5px 0;border-bottom:1px solid #1E293B" class="flex justify-between"><span class="text-xs text-muted">Weather</span><span class="text-xs semi">☀️ 73° Sunny</span></div>'+
         '<div style="height:8px"></div>'+
         '<div class="text-xs text-muted semi mb1" style="text-transform:uppercase;letter-spacing:.5px">Sunday, May 3</div>'+
-        '<div style="padding:5px 0;border-bottom:1px solid #1E293B" class="flex justify-between"><span class="text-xs text-muted">Station</span><span class="text-xs semi">🐣 Baby Animal Barn</span></div>'+
-        '<div style="padding:5px 0;border-bottom:1px solid #1E293B" class="flex justify-between"><span class="text-xs text-muted">Shift</span><span class="text-xs semi">9:00 AM – 5:00 PM</span></div>'+
+        '<div style="padding:5px 0;border-bottom:1px solid #1E293B" class="flex justify-between"><span class="text-xs text-muted">Station</span><span class="text-xs semi">🍸 Bartender</span></div>'+
+        '<div style="padding:5px 0;border-bottom:1px solid #1E293B" class="flex justify-between"><span class="text-xs text-muted">Shift</span><span class="text-xs semi">11:00 AM – 11:00 PM</span></div>'+
         '<div style="padding:5px 0" class="flex justify-between"><span class="text-xs text-muted">Weather</span><span class="text-xs semi">⛅ 67° Partly Cloudy</span></div>'+
       '</div>'+
       '<div style="background:rgba(52,211,153,.06);border-radius:8px;padding:8px;text-align:center;border:1px solid rgba(52,211,153,.2)">'+
         '<div class="text-xs text-green semi">✓ You\'re confirmed for both days!</div>'+
-        '<div class="text-xs text-muted mt1">Report 15 min early · Wear sunscreen 🌷</div></div>'+
+        '<div class="text-xs text-muted mt1">Report 15 min early · Black non-slip shoes required</div></div>'+
     '</div>'+
 
     '<div class="card" style="max-width:400px;margin:14px auto 0;border-color:rgba(251,191,36,.3)">'+

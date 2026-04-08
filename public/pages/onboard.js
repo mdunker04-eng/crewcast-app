@@ -25,7 +25,7 @@ function renderOnboard(app) {
 
           <div class="form-group">
             <label class="form-label">Business Name *</label>
-            <input type="text" id="ob-biz-name" class="form-input" placeholder="e.g., Sunny Acres Farm" autofocus>
+            <input type="text" id="ob-biz-name" class="form-input" placeholder="e.g., The Bistro on Main" autofocus>
           </div>
           <div class="form-group">
             <label class="form-label">Business Email</label>
