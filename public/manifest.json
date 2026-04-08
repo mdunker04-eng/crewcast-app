@@ -1,7 +1,7 @@
 {
   "name": "CrewCast",
   "short_name": "CrewCast",
-  "description": "Smart Workforce Scheduling",
+  "description": "Restaurant Staff Scheduling & Labor Management",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0F172A",

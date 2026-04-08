@@ -121,6 +121,16 @@ Router.add('/admin/labor-dashboard', (app) => {
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderLaborDashboard(app);
 });
+Router.add('/admin/tip-pools', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderTipPools(app);
+});
+Router.add('/admin/sidework', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderSidework(app);
+});
 
 // Demo feature views (all require admin)
 const demoRoutes = [

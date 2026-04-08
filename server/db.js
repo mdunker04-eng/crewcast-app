@@ -379,6 +379,30 @@ async function initDB() {
     } catch (migErr) {
       console.log('Staff defaults migration skipped:', migErr.message);
     }
+
+    // ── Side Work / Closing Duties ──
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sidework_tasks (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        name TEXT NOT NULL,
+        category TEXT DEFAULT 'closing',
+        station_id INTEGER REFERENCES stations(id) ON DELETE SET NULL,
+        pay_role_id INTEGER REFERENCES pay_roles(id) ON DELETE SET NULL,
+        sort_order INTEGER DEFAULT 0,
+        active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS sidework_completions (
+        id SERIAL PRIMARY KEY,
+        task_id INTEGER NOT NULL REFERENCES sidework_tasks(id) ON DELETE CASCADE,
+        employee_id INTEGER NOT NULL REFERENCES employees(id),
+        completed_at TIMESTAMPTZ DEFAULT NOW(),
+        shift_date DATE NOT NULL,
+        notes TEXT
+      );
+    `).catch(() => {});
+
   } finally {
     client.release();
   }

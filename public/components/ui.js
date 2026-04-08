@@ -140,6 +140,8 @@ const UI = {
       { id: 'pay-roles', icon: '💰', label: 'Pay Roles', path: '/admin/pay-roles' },
       { id: 'compliance', icon: '🛡️', label: 'Compliance', path: '/admin/compliance' },
       { id: 'labor-dashboard', icon: '📊', label: 'Labor Costs', path: '/admin/labor-dashboard' },
+      { id: 'tip-pools', icon: '🤝', label: 'Tip Pools', path: '/admin/tip-pools' },
+      { id: 'sidework', icon: '📋', label: 'Side Work', path: '/admin/sidework' },
       { section: 'Insights' },
       { id: 'demo-costs', icon: '💰', label: 'Cost of Gaps', path: '/admin/demo/costs' },
       { id: 'demo-alerts', icon: '🚨', label: 'Alerts', path: '/admin/demo/alerts', badge: '5' },

@@ -139,6 +139,21 @@ const API = {
     return API.get(`/api/time/tip-summary${qs ? '?' + qs : ''}`);
   },
 
+  // ── Side Work ──
+  getSidework: () => API.get('/api/sidework'),
+  createSidework: (data) => API.post('/api/sidework', data),
+  bulkCreateSidework: (tasks) => API.post('/api/sidework/bulk', { tasks }),
+  updateSidework: (id, data) => API.put(`/api/sidework/${id}`, data),
+  deleteSidework: (id) => API.delete(`/api/sidework/${id}`),
+  completeSidework: (id, notes) => API.post(`/api/sidework/${id}/complete`, { notes }),
+  getSideworkCompletions: (date) => API.get(`/api/sidework/completions${date ? '?date=' + date : ''}`),
+
+  // ── Tip Pools ──
+  getTipPools: () => API.get('/api/time/tip-pools'),
+  createTipPool: (data) => API.post('/api/time/tip-pools', data),
+  updateTipPool: (id, data) => API.put(`/api/time/tip-pools/${id}`, data),
+  deleteTipPool: (id) => API.delete(`/api/time/tip-pools/${id}`),
+
   // ── Labor Cost ──
   getLaborCost: (params) => {
     const qs = new URLSearchParams(params).toString();

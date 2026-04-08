@@ -43,6 +43,7 @@ app.use('/api/push', require('./routes/push'));
 app.use('/api/stations', require('./routes/stations'));
 app.use('/api/time', require('./routes/time'));
 app.use('/api/pay-roles', require('./routes/pay-roles'));
+app.use('/api/sidework', require('./routes/sidework'));
 
 // ── Demo page ──
 app.get('/demo', (req, res) => {

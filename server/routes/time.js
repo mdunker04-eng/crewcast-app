@@ -847,4 +847,115 @@ router.get('/labor-cost', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ── Tip Pool Rules CRUD ──
+
+// GET all tip pool rules with shares
+router.get('/tip-pools', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const rules = await pool.query(
+      `SELECT * FROM tip_pool_rules WHERE business_id = $1 ORDER BY name`,
+      [req.user.businessId]
+    );
+    // Get shares for each rule
+    const result = [];
+    for (const rule of rules.rows) {
+      const shares = await pool.query(
+        `SELECT tps.*, pr.name as role_name FROM tip_pool_shares tps
+         JOIN pay_roles pr ON pr.id = tps.pay_role_id
+         WHERE tps.rule_id = $1 ORDER BY pr.name`,
+        [rule.id]
+      );
+      result.push({ ...rule, shares: shares.rows });
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('Tip pool list error:', err);
+    res.status(500).json({ error: 'Failed to load tip pools' });
+  }
+});
+
+// CREATE a tip pool rule
+router.post('/tip-pools', authenticate, requireAdmin, async (req, res) => {
+  const { name, poolPercentage, shares } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const ruleRes = await client.query(
+      `INSERT INTO tip_pool_rules (business_id, name, pool_percentage)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [req.user.businessId, name, poolPercentage || 100]
+    );
+    const ruleId = ruleRes.rows[0].id;
+
+    if (shares && shares.length > 0) {
+      for (const s of shares) {
+        await client.query(
+          `INSERT INTO tip_pool_shares (rule_id, pay_role_id, share_percentage)
+           VALUES ($1, $2, $3)`,
+          [ruleId, s.payRoleId, s.sharePercentage]
+        );
+      }
+    }
+    await client.query('COMMIT');
+    res.json(ruleRes.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Tip pool create error:', err);
+    res.status(500).json({ error: 'Failed to create tip pool' });
+  } finally {
+    client.release();
+  }
+});
+
+// UPDATE a tip pool rule
+router.put('/tip-pools/:id', authenticate, requireAdmin, async (req, res) => {
+  const { name, poolPercentage, active, shares } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE tip_pool_rules SET name = COALESCE($1, name),
+       pool_percentage = COALESCE($2, pool_percentage),
+       active = COALESCE($3, active)
+       WHERE id = $4 AND business_id = $5`,
+      [name, poolPercentage, active, req.params.id, req.user.businessId]
+    );
+
+    if (shares) {
+      await client.query(`DELETE FROM tip_pool_shares WHERE rule_id = $1`, [req.params.id]);
+      for (const s of shares) {
+        await client.query(
+          `INSERT INTO tip_pool_shares (rule_id, pay_role_id, share_percentage)
+           VALUES ($1, $2, $3)`,
+          [req.params.id, s.payRoleId, s.sharePercentage]
+        );
+      }
+    }
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Tip pool update error:', err);
+    res.status(500).json({ error: 'Failed to update tip pool' });
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE a tip pool rule
+router.delete('/tip-pools/:id', authenticate, requireAdmin, async (req, res) => {
+  try {
+    await pool.query(
+      `DELETE FROM tip_pool_rules WHERE id = $1 AND business_id = $2`,
+      [req.params.id, req.user.businessId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Tip pool delete error:', err);
+    res.status(500).json({ error: 'Failed to delete tip pool' });
+  }
+});
+
 module.exports = router;

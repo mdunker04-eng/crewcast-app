@@ -46,7 +46,7 @@ async function renderAdminWelcome(app) {
       {
         id: 'stations',
         title: 'Set up stations',
-        desc: 'Add the work areas where employees get assigned (e.g., Register, Kitchen, Floor).',
+        desc: 'Add the stations where staff get assigned (e.g., Host Stand, Server Section, Grill).',
         done: activeStations.length >= 2,
         action: '/admin/stations',
         icon: '📍',
@@ -164,7 +164,7 @@ async function renderAdminWelcome(app) {
           </div>
           <p class="text-xs text-muted mb-3">Send this link to employees. They can install it on their phones as an app.</p>
           <div class="flex gap-2" style="flex-wrap:wrap">
-            <input type="text" class="form-input text-xs" value="https://crewcast-app-production.up.railway.app" readonly onclick="this.select()" style="flex:1;min-width:200px">
+            <input type="text" class="form-input text-xs" value="https://mindful-strength-production-071e.up.railway.app" readonly onclick="this.select()" style="flex:1;min-width:200px">
             <button class="btn btn-primary btn-sm" onclick="copyAppLink()">Copy Link</button>
           </div>
           <div class="text-xs text-muted mt-2">
@@ -221,7 +221,7 @@ async function applyTemplate(templateId) {
 }
 
 function copyAppLink() {
-  navigator.clipboard.writeText('https://crewcast-app-production.up.railway.app')
+  navigator.clipboard.writeText('https://mindful-strength-production-071e.up.railway.app')
     .then(() => UI.toast('Link copied!'))
     .catch(() => UI.toast('Couldn\'t copy — select and copy manually', 'error'));
 }

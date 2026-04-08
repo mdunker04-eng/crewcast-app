@@ -93,6 +93,10 @@ function renderSettingsSections() {
         ${settingsToggle('leadsFullDay', 'Leads always work full-day shifts')}
       </div>
       ${settingsNumber('minSiteStaff', 'Minimum staff on-site at all times', 0, 100, 0)}
+      ${settingsNumber('laborCostTarget', 'Target labor cost % of revenue', 1, 60, 30)}
+      <div class="text-xs text-muted" style="margin-top:-6px;margin-bottom:12px">Industry average is 25-35%. Used in labor dashboard alerts.</div>
+      ${settingsNumber('dailyRevenueEstimate', 'Estimated daily revenue ($)', 0, 100000, 3000)}
+      <div class="text-xs text-muted" style="margin-top:-6px;margin-bottom:12px">Used to calculate labor cost percentage in real-time.</div>
     </div>
 
     <!-- 4. Scheduling Rules -->
