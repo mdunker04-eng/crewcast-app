@@ -135,7 +135,7 @@ const UI = {
       { id: 'demo-costs', icon: '💰', label: 'Cost of Gaps', path: '/admin/demo/costs' },
       { id: 'demo-alerts', icon: '🚨', label: 'Alerts', path: '/admin/demo/alerts', badge: '5' },
       { section: 'Team' },
-      { id: 'demo-roster', icon: '👥', label: 'Roster (60)', path: '/admin/demo/roster' },
+      { id: 'demo-roster', icon: '👥', label: 'Roster (250)', path: '/admin/demo/roster' },
       { id: 'demo-employee', icon: '👤', label: 'Employee View', path: '/admin/demo/employee' },
     ];
 

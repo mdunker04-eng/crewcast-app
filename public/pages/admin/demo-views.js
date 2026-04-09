@@ -31,7 +31,7 @@ const DEMO_CROWD = {
   'May 2': {
     day:'Saturday', date:'May 2, 2026', dayKey:'Sat',
     weather:{ temp:73, condition:'Sunny', icon:'☀️', wind:'8 mph SW', precip:'5%' },
-    projected: 2800,
+    projected: 8500,
     confidence: 88,
     factors: [
       { label:'Opening weekend + tulip peak', impact:'+35%', type:'up' },
@@ -42,12 +42,12 @@ const DEMO_CROWD = {
     competing: [
       { event:'DSM Book Festival', location:'Des Moines (35 min)', impact:'<2%', threat:'low' },
     ],
-    staffNeeded: 38,
+    staffNeeded: 165,
   },
   'May 3': {
     day:'Sunday', date:'May 3, 2026', dayKey:'Sun',
     weather:{ temp:67, condition:'Partly Cloudy', icon:'⛅', wind:'12 mph NW', precip:'20%' },
-    projected: 2100,
+    projected: 6200,
     confidence: 79,
     factors: [
       { label:'Sunday (typically 25% less than Sat)', impact:'-25%', type:'down' },
@@ -58,24 +58,26 @@ const DEMO_CROWD = {
     competing: [
       { event:'Amana Colonies Maifest', location:'Amana (45 min E)', impact:'~8%', threat:'medium' },
     ],
-    staffNeeded: 30,
+    staffNeeded: 120,
   }
 };
 
 // Staffing needs per station per day (derived from CrowdPulse projections)
 const DEMO_NEEDS = {
-  'May 2': { admission:4, tulips:6, animals:3, bottles:2, cornpool:2, pillows:2, slide:1, train:2, beeline:1, bakeshop:3, store:2, haycafe:3, parking:4, grounds:2, float:3 },
-  'May 3': { admission:2, tulips:3, animals:1, bottles:1, cornpool:1, pillows:1, slide:1, train:1, beeline:1, bakeshop:1, store:1, haycafe:1, parking:2, grounds:1, float:2 }
+  'May 2': { admission:18, tulips:25, animals:12, bottles:8, cornpool:8, pillows:8, slide:6, train:10, beeline:6, bakeshop:14, store:10, haycafe:14, parking:16, grounds:8, float:12 },
+  'May 3': { admission:12, tulips:18, animals:8, bottles:5, cornpool:5, pillows:5, slide:4, train:6, beeline:4, bakeshop:10, store:7, haycafe:10, parking:10, grounds:6, float:10 }
 };
 
-// ── 60-person roster ──
-const DEMO_FIRST_NAMES = ['Emma','Jake','Riley','Morgan','Taylor','Jordan','Casey','Avery','Harper','Logan','Bailey','Quinn','Peyton','Cameron','Skyler','Dakota','Reagan','Finley','Reese','Sage','Rowan','Blake','Alex','Sam','Drew','Jamie','Hayden','Parker','Sawyer','Emery','Jesse','Kendall','Lane','Marley','Oakley','Phoenix','River','Spencer','Tatum','Val','Wren','Addison','Blair','Charlie','Devon','Ellis','Frankie','Gray','Hollis','Ira','Jules','Kit','Luca','Marin','Nico','Olive','Piper','Rory','Sloan','True'];
-const DEMO_LAST_NAMES = ['Johnson','Martinez','Walker','Chen','Smith','Lee','Brown','Davis','Wilson','Moore','Taylor','Anderson','Thomas','Jackson','White','Harris','Martin','Garcia','Thompson','Robinson','Clark','Lewis','Young','Allen','King','Wright','Hill','Green','Adams','Baker','Nelson','Carter','Mitchell','Roberts','Turner','Phillips','Campbell','Parker','Evans','Edwards','Collins','Stewart','Morris','Reed','Cook','Morgan','Bell','Murphy','Bailey','Rivera'];
+// ── 250-person roster (busy weekend scale) ──
+const DEMO_FIRST_NAMES = ['Emma','Jake','Riley','Morgan','Taylor','Jordan','Casey','Avery','Harper','Logan','Bailey','Quinn','Peyton','Cameron','Skyler','Dakota','Reagan','Finley','Reese','Sage','Rowan','Blake','Alex','Sam','Drew','Jamie','Hayden','Parker','Sawyer','Emery','Jesse','Kendall','Lane','Marley','Oakley','Phoenix','River','Spencer','Tatum','Val','Wren','Addison','Blair','Charlie','Devon','Ellis','Frankie','Gray','Hollis','Ira','Jules','Kit','Luca','Marin','Nico','Olive','Piper','Rory','Sloan','True','Aria','Brody','Caleb','Dani','Eli','Faith','Grant','Holly','Ivan','Jade','Kai','Lily','Mason','Nora','Owen','Paige','Reed','Sofia','Tyler','Uma','Vera','Will','Xena','Yara','Zane','Alec','Bea','Cole','Demi','Ethan','Fern','Gage','Hana','Ian','Joy','Knox','Lena','Max','Nina','Omar','Pearl','Ray','Stella','Ty','Ursa','Violet','Wyatt','Ximena','Yuri','Zara','Abel','Bree','Cruz','Dawn','Ezra','Faye','Gus','Hope','Iris','Jack','Kara','Leo','Mia','Nate','Opal','Pete','Rosa','Sean','Thea','Uri','Vince','Wade','Xia','Yael','Zion','Andi','Beau','Cleo','Duke','Eva','Flynn','Gwen','Hugo','Isa','Jude','Kyla','Lars','Mira','Noah','Orla','Paul','Remy','Suki','Troy','Ulla','Veda','West','Xara','Yves','Zora','Ash','Beth','Cade','Dia','Erik','Flo','Gil','Haven','Ines','Jay','Kaia','Liam','Mona','Nell','Olga','Pia','Rio','Syd','Tess','Ugo','Vida','Wes','Xyla','Yuki','Zeke','Amy','Bo','Cy','Del','Edie','Fox','Glen','Haze','Izzy','Jan','Kip','Luz','Mel','Ned','Ola','Pax','Quinn','Rue','Sal','Tia','Uzi','Val','Wyn','Xan','Yuma','Zev','Ana','Bix','Cal','Dom','Elan','Fina','Gabe','Huck','Ivy','Jax','Koda','Lark','Mae'];
+const DEMO_LAST_NAMES = ['Johnson','Martinez','Walker','Chen','Smith','Lee','Brown','Davis','Wilson','Moore','Taylor','Anderson','Thomas','Jackson','White','Harris','Martin','Garcia','Thompson','Robinson','Clark','Lewis','Young','Allen','King','Wright','Hill','Green','Adams','Baker','Nelson','Carter','Mitchell','Roberts','Turner','Phillips','Campbell','Parker','Evans','Edwards','Collins','Stewart','Morris','Reed','Cook','Morgan','Bell','Murphy','Bailey','Rivera','Foster','Russell','Butler','Barnes','Ross','Henderson','Coleman','Jenkins','Perry','Powell','Long','Patterson','Hughes','Flores','Washington','Simmons','Price','Bennett','Wood','Brooks','Ward','Sanders','Gray','James','Watson','Ramirez','Kim','Myers','Cruz','Nguyen','Ford','Sullivan','Wells','Stone','Fox','Hunt','Dean','Reyes','Vargas','Dunn','Mills','Burns','Hoffman','Greene','Watts'];
 
 function genDemoEmployee(i) {
-  const fn = DEMO_FIRST_NAMES[i];
-  const ln = DEMO_LAST_NAMES[i];
-  const yrs = i < 10 ? Math.floor(Math.random()*4)+2 : i < 25 ? Math.floor(Math.random()*3)+1 : Math.random() < .3 ? 1 : 0;
+  const fn = DEMO_FIRST_NAMES[i % DEMO_FIRST_NAMES.length];
+  const ln = DEMO_LAST_NAMES[i % DEMO_LAST_NAMES.length];
+  // Suffix to avoid duplicate names when wrapping
+  const suffix = i >= DEMO_FIRST_NAMES.length ? ' ' + String.fromCharCode(65 + Math.floor(i / DEMO_FIRST_NAMES.length)) : '';
+  const yrs = i < 30 ? Math.floor(Math.random()*4)+2 : i < 80 ? Math.floor(Math.random()*3)+1 : Math.random() < .3 ? 1 : 0;
   const overall = Math.min(5, Math.max(2, Math.round((yrs*.8 + Math.random()*2 + 1.5)*10)/10));
   const reliability = Math.min(5, Math.max(2, Math.round((overall + (Math.random()-.3))*10)/10));
 
@@ -88,10 +90,10 @@ function genDemoEmployee(i) {
   if(Math.random() > .1) avail['Sat'] = { start: Math.random() > .7 ? 10 : (Math.random() > .5 ? 8 : 9), end: Math.random() > .7 ? 15 : 17 };
   if(Math.random() > .15) avail['Sun'] = { start: Math.random() > .6 ? 10 : 9, end: Math.random() > .6 ? 15 : 17 };
 
-  return { id:i+1, firstName:fn, lastName:ln, phone:'(515) 555-' + String(100+i).padStart(4,'0'), years:yrs, overall, reliability, skills, availability:avail, status: i < 55 ? 'active' : 'inactive' };
+  return { id:i+1, firstName:fn+suffix, lastName:ln, phone:'(515) 555-' + String(1000+i).padStart(4,'0'), years:yrs, overall, reliability, skills, availability:avail, status: i < 235 ? 'active' : 'inactive' };
 }
 
-const DEMO_EMPLOYEES = Array.from({length:60}, (_, i) => genDemoEmployee(i));
+const DEMO_EMPLOYEES = Array.from({length:250}, (_, i) => genDemoEmployee(i));
 
 function demoAutoMatch(day) {
   const dayKey = DEMO_CROWD[day].dayKey;
@@ -260,7 +262,7 @@ function renderDemoDashboardContent() {
   const declPct = Math.round(decl/allTotal*100);
 
   return '<h1>Spring on the Farm — May 2-3, 2026</h1>'+
-    '<div class="subtitle">Schedule published Wed Apr 30, 4 PM · 60-person roster · 15 stations · Notifications sent</div>'+
+    '<div class="subtitle">Schedule published Wed Apr 30, 4 PM · 250-person roster · 15 stations · Notifications sent</div>'+
 
     '<div class="grid5 mb4">'+
       '<div class="stat-card"><div class="stat-label">Total Shifts</div><div class="stat-value">'+allTotal+'</div><div class="stat-sub">2 days · 15 stations</div></div>'+
@@ -329,7 +331,7 @@ function renderDemoCrowdPulseContent() {
 
         '<div class="grid3 mb3">'+
           '<div class="stat-card"><div class="stat-label">Projected Visitors</div><div class="stat-value text-violet">'+d.projected.toLocaleString()+'</div></div>'+
-          '<div class="stat-card"><div class="stat-label">Staff Recommended</div><div class="stat-value text-cyan">'+d.staffNeeded+'</div><div class="stat-sub">of 60 roster</div></div>'+
+          '<div class="stat-card"><div class="stat-label">Staff Recommended</div><div class="stat-value text-cyan">'+d.staffNeeded+'</div><div class="stat-sub">of 250 roster</div></div>'+
           '<div class="stat-card"><div class="stat-label">Revenue Forecast</div><div class="stat-value text-green">$'+Math.round(d.projected*12.50).toLocaleString()+'</div><div class="stat-sub">at ~$12.50/visitor avg</div></div>'+
         '</div>'+
 
@@ -558,7 +560,7 @@ const demoCascadeSteps = [
     badge:'Processing'
   },
   { time:'6:45 AM', icon:'🔍', color:'#22D3EE', title:'Scanning Replacement Pool',
-    detail:'Searching 60-person roster for: available today + Hay Cafe skill 3+ + not already scheduled + reliability 3.5+',
+    detail:'Searching 250-person roster for: available today + Hay Cafe skill 3+ + not already scheduled + reliability 3.5+',
     system:'Found 7 qualified candidates. Ranking by composite score (skill x3 + reliability x2 + experience)...',
     badge:'Searching'
   },
@@ -861,7 +863,7 @@ function renderDemoSwaps(app) {
 // ═══════════════════════════════════════════════════════
 function renderDemoSmsContent() {
   const msgs = [
-    { dir:'out', to:'All 48 scheduled staff', count:48, msg:'🌷 Spring on the Farm — May 2-3 schedule is live! Check your shifts and reply YES to confirm or NO if you can\'t make it. Respond by Thursday 8 PM.', time:'Wed Apr 30, 4:00 PM' },
+    { dir:'out', to:'All 198 scheduled staff', count:198, msg:'🌷 Spring on the Farm — May 2-3 schedule is live! Check your shifts and reply YES to confirm or NO if you can\'t make it. Respond by Thursday 8 PM.', time:'Wed Apr 30, 4:00 PM' },
     { dir:'in', from:'Emma Johnson', msg:'YES — both days! See you there 🌷', time:'Wed Apr 30, 5:12 PM' },
     { dir:'in', from:'Morgan Chen', msg:'Yes Saturday works!', time:'Wed Apr 30, 5:30 PM' },
     { dir:'out', to:'Morgan Chen', msg:'✅ Sat confirmed: Baby Animal Barn 9 AM–5 PM.', time:'Wed Apr 30, 5:31 PM' },
@@ -1103,7 +1105,7 @@ function renderDemoRosterContent() {
   const inactive = DEMO_EMPLOYEES.filter(e=>e.status!=='active');
 
   return '<h1>👥 Employee Roster</h1>'+
-    '<div class="subtitle">'+active.length+' active · '+inactive.length+' inactive · 60 total spring season roster</div>'+
+    '<div class="subtitle">'+active.length+' active · '+inactive.length+' inactive · 250 total spring season roster</div>'+
 
     '<div class="card" style="padding:0;overflow-x:auto">'+
     '<table><thead><tr><th>Employee</th><th>Overall</th><th>Reliability</th><th>Experience</th><th>Station Skills</th><th>Sat Avail</th><th>Sun Avail</th><th>Status</th></tr></thead>'+
