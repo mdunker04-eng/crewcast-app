@@ -113,12 +113,12 @@ async function loadStations() {
               <div style="font-size:14px;font-weight:600">${UI.formatTime(s.open_time)}</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Closes</div>
-              <div style="font-size:14px;font-weight:600">${UI.formatTime(s.close_time)}</div>
+              <div class="stat-label">Staff Report Time</div>
+              <div style="font-size:14px;font-weight:600;color:var(--amber)">${UI.formatTime(computeReportTime(s.open_time, s.arrive_early_minutes))}</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Arrive Early</div>
-              <div style="font-size:14px;font-weight:600">${s.arrive_early_minutes} min</div>
+              <div class="stat-label">Closes</div>
+              <div style="font-size:14px;font-weight:600">${UI.formatTime(s.close_time)}</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Staff Target</div>
@@ -228,10 +228,11 @@ function showAddStationModal() {
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">Staff Arrive Early</label>
-      <select id="station-early" class="form-input">
-        ${[0,10,15,20,30,45,60].map(m => `<option value="${m}" ${m === _stationDefaults.arriveEarly ? 'selected' : ''}>${m === 0 ? 'No early arrival' : m === 60 ? '1 hour before' : m + ' minutes before'}</option>`).join('')}
+      <label class="form-label">Staff Report Time</label>
+      <select id="station-report" class="form-input">
+        ${generateTimeOptions(computeReportTime(_stationDefaults.openTime, _stationDefaults.arriveEarly))}
       </select>
+      <p class="text-xs text-muted" style="margin-top:4px">When staff should arrive (before opening)</p>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="form-group">
@@ -278,16 +279,11 @@ async function showEditStationModal(stationId) {
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Staff Arrive Early</label>
-        <select id="edit-station-early" class="form-input">
-          <option value="0" ${s.arrive_early_minutes === 0 ? 'selected' : ''}>No early arrival</option>
-          <option value="10" ${s.arrive_early_minutes === 10 ? 'selected' : ''}>10 minutes before</option>
-          <option value="15" ${s.arrive_early_minutes === 15 ? 'selected' : ''}>15 minutes before</option>
-          <option value="20" ${s.arrive_early_minutes === 20 ? 'selected' : ''}>20 minutes before</option>
-          <option value="30" ${s.arrive_early_minutes === 30 ? 'selected' : ''}>30 minutes before</option>
-          <option value="45" ${s.arrive_early_minutes === 45 ? 'selected' : ''}>45 minutes before</option>
-          <option value="60" ${s.arrive_early_minutes === 60 ? 'selected' : ''}>1 hour before</option>
+        <label class="form-label">Staff Report Time</label>
+        <select id="edit-station-report" class="form-input">
+          ${generateTimeOptions(computeReportTime(s.open_time, s.arrive_early_minutes))}
         </select>
+        <p class="text-xs text-muted" style="margin-top:4px">When staff should arrive (before opening)</p>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-group">
@@ -320,12 +316,14 @@ async function saveNewStation() {
   if (!name) { UI.toast('Name required', 'error'); return; }
 
   try {
+    const openTime = document.getElementById('station-open').value;
+    const reportTime = document.getElementById('station-report').value;
     await API.addStation({
       name,
       description: document.getElementById('station-desc').value,
-      openTime: document.getElementById('station-open').value,
+      openTime,
       closeTime: document.getElementById('station-close').value,
-      arriveEarlyMinutes: parseInt(document.getElementById('station-early').value),
+      arriveEarlyMinutes: computeEarlyMinutes(openTime, reportTime),
       minStaff: parseInt(document.getElementById('station-min-staff').value),
       maxStaff: parseInt(document.getElementById('station-max-staff').value),
     });
@@ -340,12 +338,14 @@ async function saveNewStation() {
 
 async function saveEditStation(id) {
   try {
+    const editOpenTime = document.getElementById('edit-station-open').value;
+    const editReportTime = document.getElementById('edit-station-report').value;
     await API.updateStation(id, {
       name: document.getElementById('edit-station-name').value,
       description: document.getElementById('edit-station-desc').value,
-      openTime: document.getElementById('edit-station-open').value,
+      openTime: editOpenTime,
       closeTime: document.getElementById('edit-station-close').value,
-      arriveEarlyMinutes: parseInt(document.getElementById('edit-station-early').value),
+      arriveEarlyMinutes: computeEarlyMinutes(editOpenTime, editReportTime),
       minStaff: parseInt(document.getElementById('edit-station-min-staff').value),
       maxStaff: parseInt(document.getElementById('edit-station-max-staff').value),
       active: document.getElementById('edit-station-active').value === 'true',
@@ -405,15 +405,43 @@ function generateStaffOptions(selected) {
   return opts;
 }
 
-// Helper: generate time dropdown options in 30-min increments
+// Helper: generate time dropdown options in 15-min increments
 function generateTimeOptions(selected) {
   let options = '';
   for (let h = 5; h <= 22; h++) {
-    for (let m = 0; m < 60; m += 30) {
+    for (let m = 0; m < 60; m += 15) {
       const val = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
       const label = UI.formatTime(val);
       options += `<option value="${val}" ${val === selected ? 'selected' : ''}>${label}</option>`;
     }
   }
   return options;
+}
+
+// Compute staff report time from open time and arrive_early_minutes
+function computeReportTime(openTime, earlyMin) {
+  if (!openTime || earlyMin == null) return openTime || '09:00';
+  const [h, m] = openTime.split(':').map(Number);
+  const totalMin = h * 60 + m - (earlyMin || 0);
+  const rh = Math.floor(Math.max(0, totalMin) / 60);
+  const rm = Math.max(0, totalMin) % 60;
+  return `${String(rh).padStart(2, '0')}:${String(rm).padStart(2, '0')}`;
+}
+
+// Compute arrive_early_minutes from open time and report time
+function computeEarlyMinutes(openTime, reportTime) {
+  if (!openTime || !reportTime) return 15;
+  const [oh, om] = openTime.split(':').map(Number);
+  const [rh, rm] = reportTime.split(':').map(Number);
+  return Math.max(0, (oh * 60 + om) - (rh * 60 + rm));
+}
+
+// Sync report time dropdown when open time changes (in add/edit modals)
+function syncReportTime(prefix) {
+  const openEl = document.getElementById(prefix + '-open');
+  const reportEl = document.getElementById(prefix + '-report');
+  if (!openEl || !reportEl) return;
+  const earlyMin = computeEarlyMinutes(openEl.value, reportEl.value);
+  // Keep same gap, update report time
+  reportEl.value = computeReportTime(openEl.value, earlyMin);
 }

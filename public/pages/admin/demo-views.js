@@ -574,7 +574,8 @@ function renderDemoStationViewContent() {
           const allConf = arr.length > 0 && arr.every(a=>a.status==='confirmed');
           const badge = hasDecl ? '<span class="badge badge-red">⚠ Gap</span>' : allConf ? '<span class="badge badge-green">✓ Full</span>' : '<span class="badge badge-amber">⏳</span>';
 
-          return '<tr><td style="white-space:nowrap"><span class="semi">'+st.icon+' '+st.name+'</span><div class="text-xs text-muted">'+demoFmtH(st.open)+'–'+demoFmtH(st.close)+'</div></td>'+
+          const reportH = Math.max(st.open - (st.peak ? 0.5 : 0.25), 7);
+          return '<tr><td style="white-space:nowrap"><span class="semi">'+st.icon+' '+st.name+'</span><div class="text-xs text-muted">Opens '+demoFmtH(st.open)+'–'+demoFmtH(st.close)+' · <span style="color:var(--amber)">Report '+demoFmtH(reportH)+'</span></div></td>'+
             '<td class="semi" style="text-align:center">'+need+'</td>'+
             '<td><div class="flex gap1 flex-wrap">'+
               arr.map(a => {
@@ -1147,9 +1148,9 @@ function renderDemoRosterContent() {
     '<div class="subtitle">'+active.length+' active · '+inactive.length+' inactive · 60 spring season roster</div>'+
 
     '<div class="card" style="padding:0;overflow-x:auto">'+
-    '<table><thead><tr><th>Employee</th><th>Overall</th><th>Reliability</th><th>Experience</th><th>Station Skills</th><th>Sat Avail</th><th>Sun Avail</th><th>Status</th></tr></thead>'+
+    '<table><thead><tr><th>Employee</th><th>Overall</th><th>Reliability</th><th>Experience</th><th>Station Skills</th><th>Sat Avail</th><th>Sun Avail</th><th>Mon Avail</th><th>Status</th></tr></thead>'+
     '<tbody>'+
-    active.slice(0,35).map(e => {
+    active.map(e => {
       return '<tr><td><div class="semi">'+e.firstName+' '+e.lastName+'</div><div class="text-xs text-muted">'+e.phone+'</div></td>'+
         '<td><span style="color:#FBBF24;font-size:9px">'+Array(Math.round(e.overall)).fill('★').join('')+Array(5-Math.round(e.overall)).fill('☆').join('')+'</span></td>'+
         '<td class="text-xs">'+e.reliability.toFixed(1)+'</td>'+
@@ -1163,10 +1164,11 @@ function renderDemoRosterContent() {
         '</div></td>'+
         '<td>'+(e.availability.Sat ? '<span class="tag tag-green">'+demoFmtHs(e.availability.Sat.start)+'-'+demoFmtHs(e.availability.Sat.end)+'</span>' : '<span class="tag tag-red">Off</span>')+'</td>'+
         '<td>'+(e.availability.Sun ? '<span class="tag tag-green">'+demoFmtHs(e.availability.Sun.start)+'-'+demoFmtHs(e.availability.Sun.end)+'</span>' : '<span class="tag tag-red">Off</span>')+'</td>'+
+        '<td>'+(e.availability.Mon ? '<span class="tag tag-green">'+demoFmtHs(e.availability.Mon.start)+'-'+demoFmtHs(e.availability.Mon.end)+'</span>' : '<span class="tag tag-red">Off</span>')+'</td>'+
         '<td><span class="badge badge-green">active</span></td></tr>';
     }).join('')+
     '</tbody></table>'+
-    '<div style="padding:10px;text-align:center"><span class="text-xs text-muted">Showing 35 of '+active.length+' active employees</span></div>'+
+    '<div style="padding:10px;text-align:center"><span class="text-xs text-muted">'+active.length+' active · '+inactive.length+' inactive</span></div>'+
     '</div>';
 }
 
@@ -1201,7 +1203,7 @@ function renderDemoEmployeeContent() {
       '</div>'+
       '<div style="background:rgba(52,211,153,.06);border-radius:8px;padding:8px;text-align:center;border:1px solid rgba(52,211,153,.2)">'+
         '<div class="text-xs text-green semi">✓ You\'re confirmed!</div>'+
-        '<div class="text-xs text-muted mt1">Report 15 min early · Wear sunscreen 🌷</div></div>'+
+        '<div class="text-xs text-muted mt1">Report by 8:45 AM · Wear sunscreen 🌷</div></div>'+
     '</div>';
 }
 

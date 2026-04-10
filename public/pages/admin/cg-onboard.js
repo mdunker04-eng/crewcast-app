@@ -4,25 +4,36 @@
 // Uses real API to create actual stations & schedules
 // ═══════════════════════════════════════════════════════
 
+// Format report time from open time minus early minutes
+function cgFmtTime(openTime, earlyMin) {
+  const [h, m] = openTime.split(':').map(Number);
+  const total = h * 60 + m - (earlyMin || 0);
+  const rh = Math.floor(Math.max(0, total) / 60);
+  const rm = Math.max(0, total) % 60;
+  const ampm = rh >= 12 ? 'PM' : 'AM';
+  const hr = rh === 0 ? 12 : rh > 12 ? rh - 12 : rh;
+  return hr + (rm > 0 ? ':' + String(rm).padStart(2, '0') : '') + ' ' + ampm;
+}
+
 const CG_STATIONS = [
-  { name: 'Apple Barn & Country Store', icon: '🍎', category: 'Retail', minStaff: 3, maxStaff: 6 },
-  { name: 'Bakery', icon: '🧁', category: 'Food & Beverage', minStaff: 2, maxStaff: 4 },
-  { name: 'Cider Bar', icon: '🍺', category: 'Food & Beverage', minStaff: 2, maxStaff: 4 },
-  { name: 'Wine & Spirits Tasting', icon: '🍷', category: 'Food & Beverage', minStaff: 2, maxStaff: 3 },
-  { name: 'Caramel Apple Kitchen', icon: '🍏', category: 'Food & Beverage', minStaff: 2, maxStaff: 4 },
-  { name: 'Food Court', icon: '🍔', category: 'Food & Beverage', minStaff: 4, maxStaff: 8 },
-  { name: 'Corn Maze', icon: '🌽', category: 'Attractions', minStaff: 2, maxStaff: 4 },
-  { name: 'Petting Zoo', icon: '🐐', category: 'Attractions', minStaff: 2, maxStaff: 3 },
-  { name: 'Cow Train', icon: '🚂', category: 'Attractions', minStaff: 1, maxStaff: 2 },
-  { name: 'Jumping Pillow', icon: '🤸', category: 'Attractions', minStaff: 1, maxStaff: 2 },
-  { name: 'Pedal Karts', icon: '🏎️', category: 'Attractions', minStaff: 1, maxStaff: 2 },
-  { name: 'Barnyard Play Area', icon: '🎪', category: 'Attractions', minStaff: 1, maxStaff: 2 },
-  { name: 'U-Pick Apples', icon: '🍎', category: 'U-Pick', minStaff: 3, maxStaff: 6 },
-  { name: 'U-Pick Pumpkins', icon: '🎃', category: 'U-Pick', minStaff: 2, maxStaff: 5 },
-  { name: 'Hayrides', icon: '🚜', category: 'Attractions', minStaff: 2, maxStaff: 3 },
-  { name: 'Lemonade Stand', icon: '🍋', category: 'Food & Beverage', minStaff: 1, maxStaff: 2 },
-  { name: 'Strawberry U-Pick', icon: '🍓', category: 'U-Pick', minStaff: 2, maxStaff: 4 },
-  { name: 'Parking & Entrance', icon: '🅿️', category: 'Operations', minStaff: 3, maxStaff: 6 },
+  { name: 'Apple Barn & Country Store', icon: '🍎', category: 'Retail', minStaff: 3, maxStaff: 6, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
+  { name: 'Bakery', icon: '🧁', category: 'Food & Beverage', minStaff: 2, maxStaff: 4, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
+  { name: 'Cider Bar', icon: '🍺', category: 'Food & Beverage', minStaff: 2, maxStaff: 4, openTime: '10:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
+  { name: 'Wine & Spirits Tasting', icon: '🍷', category: 'Food & Beverage', minStaff: 2, maxStaff: 3, openTime: '10:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
+  { name: 'Caramel Apple Kitchen', icon: '🍏', category: 'Food & Beverage', minStaff: 2, maxStaff: 4, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
+  { name: 'Food Court', icon: '🍔', category: 'Food & Beverage', minStaff: 4, maxStaff: 8, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
+  { name: 'Corn Maze', icon: '🌽', category: 'Attractions', minStaff: 2, maxStaff: 4, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
+  { name: 'Petting Zoo', icon: '🐐', category: 'Attractions', minStaff: 2, maxStaff: 3, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
+  { name: 'Cow Train', icon: '🚂', category: 'Attractions', minStaff: 1, maxStaff: 2, openTime: '10:00', closeTime: '16:00', arriveEarlyMinutes: 15 },
+  { name: 'Jumping Pillow', icon: '🤸', category: 'Attractions', minStaff: 1, maxStaff: 2, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
+  { name: 'Pedal Karts', icon: '🏎️', category: 'Attractions', minStaff: 1, maxStaff: 2, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
+  { name: 'Barnyard Play Area', icon: '🎪', category: 'Attractions', minStaff: 1, maxStaff: 2, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
+  { name: 'U-Pick Apples', icon: '🍎', category: 'U-Pick', minStaff: 3, maxStaff: 6, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
+  { name: 'U-Pick Pumpkins', icon: '🎃', category: 'U-Pick', minStaff: 2, maxStaff: 5, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
+  { name: 'Hayrides', icon: '🚜', category: 'Attractions', minStaff: 2, maxStaff: 3, openTime: '10:00', closeTime: '16:00', arriveEarlyMinutes: 15 },
+  { name: 'Lemonade Stand', icon: '🍋', category: 'Food & Beverage', minStaff: 1, maxStaff: 2, openTime: '10:00', closeTime: '16:00', arriveEarlyMinutes: 15 },
+  { name: 'Strawberry U-Pick', icon: '🍓', category: 'U-Pick', minStaff: 2, maxStaff: 4, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
+  { name: 'Parking & Entrance', icon: '🅿️', category: 'Operations', minStaff: 3, maxStaff: 6, openTime: '08:00', closeTime: '18:00', arriveEarlyMinutes: 30 },
 ];
 
 const CG_SPRING_2026 = [
@@ -110,7 +121,7 @@ async function renderCGOnboard(app) {
               <span style="font-size:22px">${s.icon}</span>
               <div style="flex:1;min-width:0">
                 <div class="semi text-sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
-                <div class="text-xs text-muted">${s.category} · ${s.minStaff}–${s.maxStaff} staff</div>
+                <div class="text-xs text-muted">${s.category} · ${s.minStaff}–${s.maxStaff} staff${s.openTime ? ` · Report ${cgFmtTime(s.openTime, s.arriveEarlyMinutes)}` : ''}</div>
               </div>
               ${s.exists ? '<span class="badge badge-green" style="font-size:10px">Exists</span>' : ''}
             </label>
@@ -197,6 +208,9 @@ async function cgCreateStations() {
       category: s.category,
       minStaff: s.minStaff,
       maxStaff: s.maxStaff,
+      openTime: s.openTime || '09:00',
+      closeTime: s.closeTime || '17:00',
+      arriveEarlyMinutes: s.arriveEarlyMinutes || 15,
       active: true,
     });
   });
