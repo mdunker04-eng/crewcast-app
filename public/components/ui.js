@@ -93,7 +93,7 @@ const UI = {
     const tabs = [
       { id: 'dashboard', icon: SVG.grid, label: 'Home', path: '/admin' },
       { id: 'stations', icon: SVG.station, label: 'Stations', path: '/admin/stations' },
-      { id: 'schedules', icon: SVG.calendar, label: 'Schedules', path: '/admin/schedules' },
+      { id: 'schedules', icon: SVG.calendar, label: 'Season Calendar', path: '/admin/schedules' },
       { id: 'employees', icon: SVG.users, label: 'Team', path: '/admin/employees' },
     ];
     return `
@@ -117,7 +117,7 @@ const UI = {
       { id: 'cg-onboard', icon: '🌾', label: 'CG Spring Setup', path: '/admin/cg-onboard' },
       { id: 'dashboard', icon: SVG.grid, label: 'Dashboard', path: '/admin' },
       { id: 'stations', icon: SVG.station, label: 'Stations', path: '/admin/stations' },
-      { id: 'schedules', icon: SVG.calendar, label: 'Schedules', path: '/admin/schedules' },
+      { id: 'schedules', icon: SVG.calendar, label: 'Season Calendar', path: '/admin/schedules' },
       { id: 'employees', icon: SVG.users, label: 'Employees', path: '/admin/employees' },
       { id: 'settings', icon: '⚙️', label: 'Settings', path: '/admin/settings' },
       { section: 'Schedule' },

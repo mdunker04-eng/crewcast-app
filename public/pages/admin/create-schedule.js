@@ -11,8 +11,8 @@ async function renderAdminSchedules(app) {
     <div class="page">
       <div class="page-header flex justify-between items-center">
         <div>
-          <h1>Schedules</h1>
-          <p class="subtitle">Create and manage schedules</p>
+          <h1>Season Calendar</h1>
+          <p class="subtitle">Create and manage your season's schedule</p>
         </div>
         <button class="btn btn-primary btn-sm" onclick="showCreateScheduleModal()">${SVG.plus} New</button>
       </div>
