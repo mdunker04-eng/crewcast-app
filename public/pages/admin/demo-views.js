@@ -592,8 +592,34 @@ function demoStationManage(stId, day) {
     body += '</div>';
   }
 
-  body += '<div style="margin-top:14px;border-top:1px solid #334155;padding-top:12px"><div class="semi text-sm">Available to Add ('+available.length+')</div>';
-  if(available.length === 0) body += '<div class="text-xs text-muted" style="padding:8px 0">No available employees with skills for this station</div>';
+  // Quick-add dropdown: all qualified employees (even if assigned elsewhere)
+  const qualified = DEMO_EMPLOYEES.filter(e =>
+    e.status === 'active' && !assignedIds.has(e.id) && e.availability[dayKey] && (e.skills[stId] || stId === 'float')
+  ).sort((a,b) => (b.skills[stId]||0) - (a.skills[stId]||0));
+
+  body += '<div style="margin-top:14px;border-top:1px solid #334155;padding-top:12px"><div class="semi text-sm" style="margin-bottom:6px">Quick Add</div>';
+  body += '<div class="flex gap2" style="margin-bottom:10px">'+
+    '<select id="demo-quick-add-select" style="flex:1;background:#0F172A;border:1px solid #475569;border-radius:6px;padding:6px 8px;color:#E2E8F0;font-size:12px">'+
+    '<option value="">— Select qualified employee —</option>'+
+    qualified.map(e => {
+      const skill = e.skills[stId] || 0;
+      const inUse = allUsed.has(e.id);
+      return '<option value="'+e.id+'">'+e.firstName+' '+e.lastName+' (★'+Math.round(skill)+(inUse?' · busy':'')+')</option>';
+    }).join('')+
+    '</select>'+
+    '<button class="btn btn-success btn-sm" onclick="var s=document.getElementById(\'demo-quick-add-select\');if(s.value)demoAddToStation(\''+stId+'\',\''+day+'\',parseInt(s.value))">+ Add</button>'+
+  '</div>';
+
+  // Manual entry: create a brand new employee on the fly
+  body += '<div class="flex gap2">'+
+    '<input type="text" id="demo-new-emp-name" placeholder="Or type new name (e.g. John Smith)" style="flex:1;background:#0F172A;border:1px solid #475569;border-radius:6px;padding:6px 8px;color:#E2E8F0;font-size:12px">'+
+    '<button class="btn btn-success btn-sm" onclick="demoAddNewEmployee(\''+stId+'\',\''+day+'\')">+ Create & Add</button>'+
+  '</div>';
+  body += '</div>';
+
+  // Available list
+  body += '<div style="margin-top:14px;border-top:1px solid #334155;padding-top:12px"><div class="semi text-sm">Available — Not Assigned Elsewhere ('+available.length+')</div>';
+  if(available.length === 0) body += '<div class="text-xs text-muted" style="padding:8px 0">No unassigned employees with skills for this station</div>';
   else {
     body += '<div style="display:grid;gap:4px;margin-top:6px;max-height:200px;overflow-y:auto">';
     available.slice(0, 15).forEach(e => {
@@ -621,6 +647,26 @@ function demoAddToStation(stId, day, empId) {
   DEMO_ASSIGNED[day][stId].push({ employee:e, status:'confirmed' });
   UI.closeModal();
   demoStationManage(stId, day);
+}
+
+function demoAddNewEmployee(stId, day) {
+  const input = document.getElementById('demo-new-emp-name');
+  if (!input || !input.value.trim()) return;
+  const parts = input.value.trim().split(/\s+/);
+  const firstName = parts[0];
+  const lastName = parts.slice(1).join(' ') || 'New';
+  const newId = DEMO_EMPLOYEES.length + 1 + Math.floor(Math.random() * 1000);
+  const dayKey = DEMO_CROWD[day].dayKey;
+  const newEmp = {
+    id: newId, firstName, lastName,
+    phone: '(515) 555-' + String(9000 + newId).padStart(4, '0'),
+    years: 0, overall: 3.0, reliability: 3.0,
+    skills: { [stId]: 3.0 },
+    availability: { Sat: {start:9,end:17}, Sun: {start:9,end:17}, Mon: {start:9,end:17} },
+    status: 'active'
+  };
+  DEMO_EMPLOYEES.push(newEmp);
+  demoAddToStation(stId, day, newId);
 }
 
 function demoRemoveFromStation(stId, day, empId) {

@@ -164,11 +164,30 @@ async function renderCGOnboard(app) {
         </div>` : ''}
       </div>
 
-      <!-- Step 3: Next Steps -->
+      <!-- Step 3: Load Test Staff -->
+      <div class="card" style="margin-bottom:16px;border-left:3px solid var(--purple-light)">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <div class="semi" style="font-size:16px">👥 Step 3 — Test Staff</div>
+            <div class="text-xs text-muted mt-1">Load 60 fake employees with names, phones, and station skills for testing. You can remove them later.</div>
+          </div>
+          <div id="cg-staff-status"></div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-primary" id="cg-load-staff-btn" onclick="cgLoadTestStaff()">Load 60 Test Employees</button>
+          <button class="btn btn-ghost btn-sm" style="color:#F87171" id="cg-clear-staff-btn" onclick="cgClearTestStaff()">🗑️ Clear Test Staff</button>
+        </div>
+        <div id="cg-staff-progress" style="margin-top:8px;display:none">
+          <div style="background:#1E293B;border-radius:6px;height:6px;overflow:hidden"><div id="cg-staff-bar" style="height:100%;background:var(--purple-light);width:0%;transition:width .3s"></div></div>
+          <div id="cg-staff-msg" class="text-xs text-muted" style="margin-top:4px"></div>
+        </div>
+      </div>
+
+      <!-- Step 4: Next Steps -->
       <div class="card" style="background:var(--purple-bg);border-color:rgba(167,139,250,.25);margin-bottom:16px">
         <div class="semi" style="font-size:16px;margin-bottom:8px;color:var(--purple-light)">🚀 Next Steps</div>
         <div style="display:grid;gap:6px;font-size:13px;color:var(--text-muted)">
-          <div>1. <strong>Add employees</strong> on the <a href="#" onclick="Router.navigate('/admin/employees');return false" style="color:var(--purple-light)">Employees page</a></div>
+          <div>1. <strong>Add employees</strong> on the <a href="#" onclick="Router.navigate('/admin/employees');return false" style="color:var(--purple-light)">Employees page</a> (or use test staff above)</div>
           <div>2. <strong>Assign staff to stations</strong> — set which areas each person can work</div>
           <div>3. <strong>Open a schedule</strong> and use <strong>Auto-Fill</strong> to assign shifts</div>
           <div>4. <strong>Publish</strong> and share the app link with your team</div>
@@ -264,5 +283,98 @@ async function cgCreateSchedules() {
   } catch (err) {
     UI.toast(`Created ${created}, then error: ${err.message}`, 'error');
     if (btn) { btn.disabled = false; btn.textContent = 'Create Selected Schedules'; }
+  }
+}
+
+// ── Test Staff: 60 fake employees ──
+const CG_TEST_FIRST = ['Emma','Jake','Riley','Morgan','Taylor','Jordan','Casey','Avery','Harper','Logan','Bailey','Quinn','Peyton','Cameron','Skyler','Dakota','Reagan','Finley','Reese','Sage','Rowan','Blake','Alex','Sam','Drew','Jamie','Hayden','Parker','Sawyer','Emery','Jesse','Kendall','Lane','Marley','Oakley','Phoenix','River','Spencer','Tatum','Val','Wren','Addison','Blair','Charlie','Devon','Ellis','Frankie','Gray','Hollis','Aria','Brody','Caleb','Dani','Eli','Faith','Grant','Holly','Ivan','Jade','Kai'];
+const CG_TEST_LAST = ['Johnson','Martinez','Walker','Chen','Smith','Lee','Brown','Davis','Wilson','Moore','Taylor','Anderson','Thomas','Jackson','White','Harris','Martin','Garcia','Thompson','Robinson','Clark','Lewis','Young','Allen','King','Wright','Hill','Green','Adams','Baker'];
+
+async function cgLoadTestStaff() {
+  const btn = document.getElementById('cg-load-staff-btn');
+  const prog = document.getElementById('cg-staff-progress');
+  const bar = document.getElementById('cg-staff-bar');
+  const msg = document.getElementById('cg-staff-msg');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+  if (prog) prog.style.display = 'block';
+
+  // Build 60 employees
+  const employees = [];
+  for (let i = 0; i < 60; i++) {
+    employees.push({
+      firstName: CG_TEST_FIRST[i % CG_TEST_FIRST.length],
+      lastName: CG_TEST_LAST[i % CG_TEST_LAST.length],
+      phone: '(515) 555-' + String(2000 + i).padStart(4, '0'),
+      role: 'employee',
+    });
+  }
+
+  try {
+    // Step 1: Bulk import employees
+    if (msg) msg.textContent = 'Creating 60 employees...';
+    if (bar) bar.style.width = '20%';
+    const result = await API.bulkImport(employees);
+    if (msg) msg.textContent = `Created ${result.added} employees (${result.skipped} already existed)`;
+    if (bar) bar.style.width = '40%';
+
+    // Step 2: Assign each employee to 2-4 random stations
+    const allStations = await API.getStations();
+    if (allStations.length === 0) {
+      UI.toast('Create stations first (Step 1), then load test staff.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Load 60 Test Employees'; }
+      return;
+    }
+
+    const allEmployees = await API.getEmployees();
+    // Only assign stations to test employees (phone starts with (515) 555-)
+    const testEmps = allEmployees.filter(e => e.phone && e.phone.startsWith('(515) 555-'));
+    if (msg) msg.textContent = `Assigning station skills to ${testEmps.length} employees...`;
+    if (bar) bar.style.width = '50%';
+
+    for (let i = 0; i < testEmps.length; i++) {
+      const emp = testEmps[i];
+      // Each employee gets 2-5 random stations
+      const count = 2 + Math.floor(Math.random() * 4);
+      const shuffled = [...allStations].sort(() => Math.random() - 0.5);
+      const stationIds = shuffled.slice(0, count).map(s => s.id);
+      try {
+        await API.updateEmployeeStations(emp.id, stationIds);
+      } catch (e) { /* skip errors */ }
+      if (bar) bar.style.width = (50 + (i / testEmps.length) * 45) + '%';
+      if (msg && i % 10 === 0) msg.textContent = `Assigning stations... ${i + 1}/${testEmps.length}`;
+    }
+
+    if (bar) bar.style.width = '100%';
+    if (msg) msg.textContent = `Done! ${result.added} employees created, stations assigned.`;
+    UI.toast(`Loaded ${result.added} test employees with station skills!`);
+
+    setTimeout(() => renderCGOnboard(document.getElementById('app')), 1500);
+  } catch (err) {
+    UI.toast('Error: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Load 60 Test Employees'; }
+  }
+}
+
+async function cgClearTestStaff() {
+  if (!confirm('Remove all test employees (phone starting with (515) 555-)? This cannot be undone.')) return;
+
+  const btn = document.getElementById('cg-clear-staff-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Clearing...'; }
+
+  try {
+    const allEmployees = await API.getEmployees();
+    const testEmps = allEmployees.filter(e => e.phone && e.phone.startsWith('(515) 555-'));
+    let removed = 0;
+    for (const emp of testEmps) {
+      try {
+        await API.deleteEmployee(emp.id);
+        removed++;
+      } catch (e) { /* skip */ }
+    }
+    UI.toast(`Removed ${removed} test employees`);
+    renderCGOnboard(document.getElementById('app'));
+  } catch (err) {
+    UI.toast('Error: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🗑️ Clear Test Staff'; }
   }
 }
