@@ -65,8 +65,23 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
       inviteToken
     ]);
 
+    // Auto-set 3-star Reliability rating for new employee
+    const newEmpId = rows[0].id;
+    try {
+      const { rows: relCat } = await pool.query(
+        "SELECT id FROM station_categories WHERE business_id = $1 AND name = 'Reliability'",
+        [req.user.businessId]
+      );
+      if (relCat.length > 0) {
+        await pool.query(
+          'INSERT INTO employee_category_ratings (employee_id, category_id, rating) VALUES ($1, $2, 3) ON CONFLICT DO NOTHING',
+          [newEmpId, relCat[0].id]
+        );
+      }
+    } catch (e) { /* non-critical */ }
+
     res.json({
-      id: rows[0].id,
+      id: newEmpId,
       firstName,
       lastName,
       phone,
@@ -176,6 +191,24 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
           }
         }
       }
+      // Auto-set 3-star Reliability for all newly added employees
+      const { rows: relCat } = await client.query(
+        "SELECT id FROM station_categories WHERE business_id = $1 AND name = 'Reliability'",
+        [req.user.businessId]
+      );
+      if (relCat.length > 0 && results.added > 0) {
+        // Get all employees in this business and insert Reliability rating where missing
+        const { rows: allEmps } = await client.query(
+          'SELECT id FROM employees WHERE business_id = $1 AND active = true', [req.user.businessId]
+        );
+        for (const e of allEmps) {
+          await client.query(
+            'INSERT INTO employee_category_ratings (employee_id, category_id, rating) VALUES ($1, $2, 3) ON CONFLICT (employee_id, category_id) DO NOTHING',
+            [e.id, relCat[0].id]
+          );
+        }
+      }
+
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK');

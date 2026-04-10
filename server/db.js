@@ -213,6 +213,28 @@ async function initDB() {
         const { rows: existing } = await client.query(
           'SELECT id FROM station_categories WHERE business_id = $1 LIMIT 1', [biz.id]
         );
+        // Always ensure Reliability category exists (even for existing businesses)
+        await client.query(
+          'INSERT INTO station_categories (business_id, name, icon, sort_order) VALUES ($1, $2, $3, $4) ON CONFLICT (business_id, name) DO NOTHING',
+          [biz.id, 'Reliability', '⏱️', 6]
+        );
+        // Default all employees to 3-star Reliability if not yet rated
+        const { rows: relCatRows } = await client.query(
+          'SELECT id FROM station_categories WHERE business_id = $1 AND name = $2', [biz.id, 'Reliability']
+        );
+        if (relCatRows.length > 0) {
+          const relCatId = relCatRows[0].id;
+          const { rows: empRows } = await client.query(
+            'SELECT id FROM employees WHERE business_id = $1 AND active = true', [biz.id]
+          );
+          for (const emp of empRows) {
+            await client.query(
+              'INSERT INTO employee_category_ratings (employee_id, category_id, rating) VALUES ($1, $2, 3) ON CONFLICT (employee_id, category_id) DO NOTHING',
+              [emp.id, relCatId]
+            );
+          }
+        }
+
         if (existing.length === 0) {
           const cats = [
             ['Guest Services', '🎟️', 1],

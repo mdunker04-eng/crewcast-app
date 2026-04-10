@@ -230,6 +230,28 @@ router.put('/:scheduleId/shifts/:shiftId/respond', authenticate, async (req, res
       WHERE id = $4
     `, [status, notes || null, status === 'declined' ? (decline_reason || null) : null, req.params.shiftId]);
 
+    // Adjust Reliability rating based on response
+    try {
+      const { rows: relCat } = await pool.query(
+        "SELECT id FROM station_categories WHERE business_id = $1 AND name = 'Reliability'",
+        [req.user.businessId]
+      );
+      if (relCat.length > 0) {
+        const relCatId = relCat[0].id;
+        const { rows: curRating } = await pool.query(
+          'SELECT rating FROM employee_category_ratings WHERE employee_id = $1 AND category_id = $2',
+          [req.user.id, relCatId]
+        );
+        let current = curRating.length > 0 ? curRating[0].rating : 3;
+        if (status === 'confirmed' && current < 5) current++;
+        else if (status === 'declined' && current > 1) current--;
+        await pool.query(
+          'INSERT INTO employee_category_ratings (employee_id, category_id, rating) VALUES ($1, $2, $3) ON CONFLICT (employee_id, category_id) DO UPDATE SET rating = $3, updated_at = NOW()',
+          [req.user.id, relCatId, current]
+        );
+      }
+    } catch (e) { /* non-critical */ }
+
     // Notify admins when an employee declines a shift
     if (status === 'declined') {
       try {

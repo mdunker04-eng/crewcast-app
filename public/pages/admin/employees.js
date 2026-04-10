@@ -17,14 +17,27 @@ function renderCatStars(empId, catId, rating, icon, name) {
     const filled = rating && i <= rating;
     stars += `<span onclick="setCatRating(${empId},${catId},${i === rating ? 0 : i})" style="font-size:12px;color:${filled ? '#FFD700' : '#475569'};cursor:pointer">${filled ? '★' : '☆'}</span>`;
   }
-  return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:1px 6px;border-radius:10px;background:rgba(30,41,59,.6);border:1px solid rgba(51,65,85,.4)" title="${name}"><span style="font-size:11px">${icon}</span>${stars}</span>`;
+  return `<span id="cat-stars-${empId}-${catId}" style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:1px 6px;border-radius:10px;background:rgba(30,41,59,.6);border:1px solid rgba(51,65,85,.4)" title="${name}"><span style="font-size:11px">${icon}</span>${stars}</span>`;
+}
+
+function _rebuildCatStars(empId, catId, rating, icon) {
+  let stars = '';
+  for (let i = 1; i <= 5; i++) {
+    const filled = rating && i <= rating;
+    stars += `<span onclick="setCatRating(${empId},${catId},${i === rating ? 0 : i})" style="font-size:12px;color:${filled ? '#FFD700' : '#475569'};cursor:pointer">${filled ? '★' : '☆'}</span>`;
+  }
+  return `<span style="font-size:11px">${icon}</span>${stars}`;
 }
 
 async function setCatRating(empId, catId, rating) {
   try {
     await API.setCategoryRating(empId, catId, rating || null);
-    // Update just the rating display without full re-render
-    renderAdminEmployees(document.getElementById('app'));
+    // Update just the stars inline — no page reload
+    const container = document.getElementById(`cat-stars-${empId}-${catId}`);
+    if (container) {
+      const icon = container.querySelector('span')?.textContent || '📋';
+      container.innerHTML = _rebuildCatStars(empId, catId, rating, icon);
+    }
   } catch (err) {
     UI.toast(err.message, 'error');
   }
