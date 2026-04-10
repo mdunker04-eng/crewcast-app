@@ -345,7 +345,9 @@ async function showAutoFillModal(scheduleId) {
     if (settings.employeeRankStations === false) { prefsFeatureEnabled = false; usePreferences = false; }
   } catch (e) {}
 
-  const totalNeeded = stations.reduce((sum, s) => sum + (s.max_staff || s.staff_needed || 0), 0);
+  const defaultTotal = stations.reduce((sum, s) => sum + (s.staff_needed || 0), 0);
+  const minTotal = stations.reduce((sum, s) => sum + (s.min_staff || 1), 0);
+  const maxTotal = stations.reduce((sum, s) => sum + (s.max_staff || s.staff_needed || 0), 0);
 
   // Build list of all dates in the schedule range
   const scheduleDates = [];
@@ -356,7 +358,22 @@ async function showAutoFillModal(scheduleId) {
   }
 
   UI.showModal('Auto-Fill Shifts', `
-    <p class="text-sm text-muted mb-3">Select which dates and stations to staff. Employees will be auto-assigned to each day.</p>
+    <p class="text-sm text-muted mb-3">Set your total crew size and stations will scale automatically.</p>
+
+    <div class="form-group">
+      <label class="form-label">Total Staff for This Day</label>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <input type="range" id="af-total-slider" min="${minTotal}" max="${Math.max(maxTotal, emps.length)}" value="${defaultTotal}"
+          oninput="onTotalStaffChange(this.value)" style="flex:1;accent-color:var(--purple)">
+        <input type="number" id="af-total-input" min="${minTotal}" max="${Math.max(maxTotal, emps.length)}" value="${defaultTotal}"
+          oninput="onTotalStaffChange(this.value)" style="width:60px;text-align:center;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:6px;font-size:16px;font-weight:600">
+      </div>
+      <div class="flex justify-between text-xs text-muted">
+        <span>Min: ${minTotal}</span>
+        <span>Default: ${defaultTotal}</span>
+        <span>Max: ${maxTotal}</span>
+      </div>
+    </div>
 
     <div class="form-group">
       <label class="form-label">Dates to Fill</label>
@@ -371,39 +388,29 @@ async function showAutoFillModal(scheduleId) {
     </div>
 
     <div class="form-group">
-      <label class="form-label">Stations to Staff</label>
-      <div class="flex gap-2 mb-2">
-        <button class="btn btn-ghost btn-sm" onclick="document.querySelectorAll('.af-station-cb').forEach(c=>c.checked=true);updateAutoFillSummary()">All</button>
-        <button class="btn btn-ghost btn-sm" onclick="document.querySelectorAll('.af-station-cb').forEach(c=>c.checked=false);updateAutoFillSummary()">None</button>
-      </div>
-      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">
+      <label class="form-label">Station Breakdown <span class="text-xs text-muted">(auto-scaled)</span></label>
+      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px" id="af-station-list">
         ${stations.map(s => `
-          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;border-bottom:1px solid rgba(51,65,85,.2)">
-            <input type="checkbox" class="af-station-cb" data-station="${s.name}" data-needed="${s.staff_needed || 0}"
-              data-open="${s.open_time}" data-close="${s.close_time}" checked
-              onchange="updateAutoFillSummary()"
-              style="width:16px;height:16px;accent-color:var(--purple)">
-            <div style="flex:1">
-              <span class="text-sm semi">${s.name}</span>
-            </div>
-            <span class="text-xs text-muted">${s.staff_needed || 0} staff</span>
-          </label>
+          <div class="flex justify-between items-center" style="padding:6px 0;border-bottom:1px solid rgba(51,65,85,.2)" data-station="${s.name}" data-min="${s.min_staff || 1}" data-default="${s.staff_needed || 0}" data-max="${s.max_staff || 0}" data-open="${s.open_time}" data-close="${s.close_time}">
+            <span class="text-sm semi" style="flex:1">${s.name}</span>
+            <span class="text-xs af-station-scaled" style="color:var(--purple-light);font-weight:600;min-width:40px;text-align:right">${s.staff_needed || 0}</span>
+          </div>
         `).join('')}
       </div>
     </div>
 
     <div id="autofill-summary" class="card" style="background:var(--bg-primary);padding:12px;margin-bottom:8px">
       <div class="flex justify-between text-sm">
-        <span>Stations selected:</span>
+        <span>Stations:</span>
         <span class="semi" id="af-station-count">${stations.length}</span>
       </div>
       <div class="flex justify-between text-sm">
-        <span>Total staff needed:</span>
-        <span class="semi" id="af-staff-count">${totalNeeded}</span>
+        <span>Total staff:</span>
+        <span class="semi text-purple" id="af-staff-count">${defaultTotal}</span>
       </div>
       <div class="flex justify-between text-sm">
         <span>Available employees:</span>
-        <span class="semi ${emps.length < totalNeeded ? 'text-amber' : 'text-green'}">${emps.length}</span>
+        <span class="semi ${emps.length < defaultTotal ? 'text-amber' : 'text-green'}" id="af-avail-count">${emps.length}</span>
       </div>
     </div>
 
@@ -427,21 +434,63 @@ async function showAutoFillModal(scheduleId) {
 
   // Store for use in execute
   window._autoFillStations = stations;
+
+  // Initialize scaled values
+  onTotalStaffChange(defaultTotal);
 }
 
-function updateAutoFillSummary() {
-  const checked = document.querySelectorAll('.af-station-cb:checked');
-  let totalNeeded = 0;
-  checked.forEach(cb => { totalNeeded += parseInt(cb.dataset.needed) || 0; });
-  document.getElementById('af-station-count').textContent = checked.length;
-  document.getElementById('af-staff-count').textContent = totalNeeded;
+function onTotalStaffChange(val) {
+  const total = parseInt(val) || 0;
+  // Sync slider and input
+  const slider = document.getElementById('af-total-slider');
+  const input = document.getElementById('af-total-input');
+  if (slider && slider.value != total) slider.value = total;
+  if (input && input.value != total) input.value = total;
 
-  const empCount = (window._scheduleEmployees || []).length;
-  const empEl = document.getElementById('af-staff-count').parentElement.nextElementSibling.querySelector('.semi');
-  if (empEl) {
-    empEl.className = `semi ${empCount < totalNeeded ? 'text-amber' : 'text-green'}`;
+  // Proportionally scale stations
+  const rows = document.querySelectorAll('#af-station-list [data-station]');
+  const defaults = [];
+  let defaultSum = 0;
+  rows.forEach(row => {
+    const def = parseInt(row.dataset.default) || 1;
+    const min = parseInt(row.dataset.min) || 1;
+    const max = parseInt(row.dataset.max) || def;
+    defaults.push({ row, def, min, max });
+    defaultSum += def;
+  });
+
+  // Scale each station proportionally, clamped to min/max
+  let allocated = 0;
+  const scaled = defaults.map(d => {
+    let n = Math.round((d.def / (defaultSum || 1)) * total);
+    n = Math.max(d.min, Math.min(d.max, n));
+    return n;
+  });
+  // Adjust rounding to hit exact total
+  let diff = total - scaled.reduce((s, n) => s + n, 0);
+  for (let i = 0; diff !== 0 && i < scaled.length; i++) {
+    if (diff > 0 && scaled[i] < defaults[i].max) { scaled[i]++; diff--; }
+    else if (diff < 0 && scaled[i] > defaults[i].min) { scaled[i]--; diff++; }
+  }
+
+  rows.forEach((row, i) => {
+    const label = row.querySelector('.af-station-scaled');
+    if (label) label.textContent = scaled[i];
+    row.dataset.scaled = scaled[i];
+  });
+
+  // Update summary
+  document.getElementById('af-staff-count').textContent = total;
+  const empCount = (window._scheduleEmployees || []).filter(e => e.role !== 'admin' && e.role !== 'lead').length;
+  const availEl = document.getElementById('af-avail-count');
+  if (availEl) {
+    availEl.textContent = empCount;
+    availEl.className = `semi ${empCount < total ? 'text-amber' : 'text-green'}`;
   }
 }
+
+// Keep backward compat — old code might call this
+function updateAutoFillSummary() { onTotalStaffChange(document.getElementById('af-total-input')?.value || 0); }
 
 async function executeAutoFill(scheduleId) {
   const dateCbs = document.querySelectorAll('.af-date-cb:checked');
@@ -452,8 +501,8 @@ async function executeAutoFill(scheduleId) {
   const emps = (window._scheduleEmployees || []).filter(e => e.role !== 'admin' && e.role !== 'lead');
   if (emps.length === 0) { UI.toast('No employees available', 'error'); return; }
 
-  const checked = document.querySelectorAll('.af-station-cb:checked');
-  if (checked.length === 0) { UI.toast('Select at least one station', 'error'); return; }
+  const stationRows = document.querySelectorAll('#af-station-list [data-station]');
+  if (stationRows.length === 0) { UI.toast('No stations found', 'error'); return; }
 
   // Load business settings to check if preference matching is enabled
   let usePreferences = true; // default ON
@@ -497,15 +546,18 @@ async function executeAutoFill(scheduleId) {
     return score;
   }
 
-  // Collect all station requests
+  // Collect station requests with scaled staff counts
   const stationRequests = [];
-  checked.forEach(cb => {
-    stationRequests.push({
-      name: cb.dataset.station,
-      needed: parseInt(cb.dataset.needed) || 1,
-      openTime: cb.dataset.open || '09:00',
-      closeTime: cb.dataset.close || '17:00',
-    });
+  stationRows.forEach(row => {
+    const scaled = parseInt(row.dataset.scaled) || parseInt(row.dataset.default) || 1;
+    if (scaled > 0) {
+      stationRequests.push({
+        name: row.dataset.station,
+        needed: scaled,
+        openTime: row.dataset.open || '09:00',
+        closeTime: row.dataset.close || '17:00',
+      });
+    }
   });
 
   // Build shifts for EACH selected date
@@ -548,7 +600,7 @@ async function executeAutoFill(scheduleId) {
     await API.addShifts(scheduleId, shifts);
     UI.closeModal();
     const prefCount = usePreferences ? Object.values(stationSkillMap).reduce((sum, arr) => sum + arr.filter(t => t.rank > 0).length, 0) : 0;
-    let msg = `Generated ${shifts.length} shifts across ${checked.length} stations, ${dates.length} day${dates.length > 1 ? 's' : ''}!`;
+    let msg = `Generated ${shifts.length} shifts across ${stationRequests.length} stations, ${dates.length} day${dates.length > 1 ? 's' : ''}!`;
     if (prefCount > 0) msg = `Generated ${shifts.length} shifts across ${dates.length} day${dates.length > 1 ? 's' : ''} (preference-matched)!`;
     else if (Object.keys(stationSkillMap).length > 0) msg = `Generated ${shifts.length} shifts across ${dates.length} day${dates.length > 1 ? 's' : ''} (skill-matched)!`;
     UI.toast(msg);

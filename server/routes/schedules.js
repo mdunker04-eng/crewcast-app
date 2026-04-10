@@ -25,7 +25,7 @@ router.get('/', authenticate, async (req, res) => {
         (SELECT COUNT(*) FROM shifts WHERE schedule_id = s.id AND status = 'pending') as pending
       FROM schedules s
       WHERE s.business_id = $1
-      ORDER BY s.start_date DESC
+      ORDER BY s.start_date ASC
     `, [req.user.businessId]);
 
     res.json(rows);
