@@ -114,6 +114,7 @@ const UI = {
     const items = [
       { section: 'Admin' },
       { id: 'welcome', icon: '🚀', label: 'Getting Started', path: '/admin/welcome' },
+      { id: 'cg-onboard', icon: '🌾', label: 'CG Spring Setup', path: '/admin/cg-onboard' },
       { id: 'dashboard', icon: SVG.grid, label: 'Dashboard', path: '/admin' },
       { id: 'stations', icon: SVG.station, label: 'Stations', path: '/admin/stations' },
       { id: 'schedules', icon: SVG.calendar, label: 'Schedules', path: '/admin/schedules' },
@@ -135,7 +136,7 @@ const UI = {
       { id: 'demo-costs', icon: '💰', label: 'Cost of Gaps', path: '/admin/demo/costs' },
       { id: 'demo-alerts', icon: '🚨', label: 'Alerts', path: '/admin/demo/alerts', badge: '5' },
       { section: 'Team' },
-      { id: 'demo-roster', icon: '👥', label: 'Roster (250)', path: '/admin/demo/roster' },
+      { id: 'demo-roster', icon: '👥', label: 'Roster (60)', path: '/admin/demo/roster' },
       { id: 'demo-employee', icon: '👤', label: 'Employee View', path: '/admin/demo/employee' },
     ];
 

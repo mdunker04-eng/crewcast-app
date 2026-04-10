@@ -208,8 +208,83 @@ async function renderAssignmentsContent(selectedDate, isAdminView) {
   }
 }
 
+// Build date dropdown options from existing schedules
+function buildAssignmentDateOptions(schedules, selectedDate) {
+  // Collect all unique dates covered by schedules
+  const dates = new Set();
+  schedules.forEach(s => {
+    const start = s.start_date || s.date;
+    const end = s.end_date || s.date || start;
+    // Add every day in range
+    let d = new Date(start + 'T00:00:00');
+    const endD = new Date(end + 'T00:00:00');
+    while (d <= endD) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      dates.add(`${yyyy}-${mm}-${dd}`);
+      d.setDate(d.getDate() + 1);
+    }
+  });
+
+  const sorted = Array.from(dates).sort();
+  const today = getTodayString();
+
+  let opts = '';
+  // "Today" option always present
+  const todayInList = sorted.includes(today);
+  opts += `<option value="${today}" ${selectedDate === today ? 'selected' : ''}>📅 Today — ${formatAssignmentDate(today)}</option>`;
+
+  // Separator
+  if (sorted.length > 0) opts += '<option disabled>──────────</option>';
+
+  // All schedule dates
+  sorted.forEach(dt => {
+    if (dt === today) return; // already shown above
+    const sel = dt === selectedDate ? 'selected' : '';
+    opts += `<option value="${dt}" ${sel}>${formatAssignmentDate(dt)}</option>`;
+  });
+
+  // Custom date option
+  const isCustom = selectedDate !== today && !sorted.includes(selectedDate);
+  opts += '<option disabled>──────────</option>';
+  opts += `<option value="__custom" ${isCustom ? 'selected' : ''}>📝 Pick a date...</option>`;
+  if (isCustom) {
+    opts += `<option value="${selectedDate}" selected>${formatAssignmentDate(selectedDate)}</option>`;
+  }
+
+  return opts;
+}
+
+function onAssignmentDateChange(selectEl) {
+  const val = selectEl.value;
+  if (val === '__custom') {
+    // Show a hidden date input and trigger it
+    const picker = document.getElementById('assignment-date-hidden');
+    if (picker) {
+      picker.showPicker ? picker.showPicker() : picker.click();
+    }
+    return;
+  }
+  window._assignmentDate = val;
+  renderAssignmentsAdmin(document.getElementById('app'));
+}
+
+function onAssignmentCustomDate(input) {
+  if (input.value) {
+    window._assignmentDate = input.value;
+    renderAssignmentsAdmin(document.getElementById('app'));
+  }
+}
+
 async function renderAssignmentsAdmin(app) {
   const selectedDate = window._assignmentDate || getTodayString();
+
+  // Fetch schedules early for the dropdown
+  let schedules = [];
+  try { schedules = await API.getSchedules(); } catch(e) {}
+
+  const dropdownOptions = buildAssignmentDateOptions(schedules, selectedDate);
 
   app.innerHTML = UI.adminShell('assignments', `
     <div class="page">
@@ -218,8 +293,11 @@ async function renderAssignmentsAdmin(app) {
           <h1 style="margin:0">📋 Today's Assignments</h1>
           <p class="subtitle" style="margin:4px 0 0 0">${API.user?.businessName || 'CrewCast'}</p>
         </div>
-        <div class="flex gap2">
-          <input type="date" id="assignment-date-picker" value="${selectedDate}" onchange="window._assignmentDate=this.value;renderAssignmentsAdmin(document.getElementById('app'))" style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text);font-size:14px;cursor:pointer">
+        <div class="flex gap2" style="align-items:center">
+          <select onchange="onAssignmentDateChange(this)" style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text);font-size:14px;cursor:pointer;min-width:200px">
+            ${dropdownOptions}
+          </select>
+          <input type="date" id="assignment-date-hidden" value="${selectedDate}" onchange="onAssignmentCustomDate(this)" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
           <button class="btn btn-secondary btn-sm" onclick="window._assignmentDate='${getTodayString()}';renderAssignmentsAdmin(document.getElementById('app'))">Today</button>
         </div>
       </div>

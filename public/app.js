@@ -87,6 +87,11 @@ Router.add('/admin/assignments', (app) => {
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderAssignmentsAdmin(app);
 });
+Router.add('/admin/cg-onboard', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderCGOnboard(app);
+});
 
 // Demo feature views (all require admin)
 const demoRoutes = [
