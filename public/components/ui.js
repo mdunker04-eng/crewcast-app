@@ -121,7 +121,6 @@ const UI = {
       { id: 'employees', icon: SVG.users, label: 'Employees', path: '/admin/employees' },
       { id: 'settings', icon: '⚙️', label: 'Settings', path: '/admin/settings' },
       { section: 'Schedule' },
-      { id: 'assignments', icon: '📋', label: 'Assignments', path: '/admin/assignments' },
       { id: 'demo-dashboard', icon: '📊', label: 'Dashboard', path: '/admin/demo/dashboard' },
       { id: 'demo-crowdpulse', icon: '🎯', label: 'Attendance Forecast', path: '/admin/demo/crowdpulse' },
       { id: 'demo-stations', icon: '🏗️', label: 'Station View', path: '/admin/demo/stations' },
