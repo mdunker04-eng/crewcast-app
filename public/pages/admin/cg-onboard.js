@@ -310,10 +310,18 @@ async function cgLoadTestStaff() {
   }
 
   try {
-    // Step 1: Bulk import employees
+    // Step 1: Bulk import employees in batches of 10 (avoids server timeouts)
     if (msg) msg.textContent = 'Creating 60 employees...';
-    if (bar) bar.style.width = '20%';
-    const result = await API.bulkImport(employees);
+    if (bar) bar.style.width = '10%';
+    const result = { added: 0, skipped: 0 };
+    const BATCH = 10;
+    for (let start = 0; start < employees.length; start += BATCH) {
+      const batch = employees.slice(start, start + BATCH);
+      const r = await API.bulkImport(batch);
+      result.added += r.added;
+      result.skipped += r.skipped;
+      if (bar) bar.style.width = (10 + (start / employees.length) * 25) + '%';
+    }
     if (msg) msg.textContent = `Created ${result.added} employees (${result.skipped} already existed)`;
     if (bar) bar.style.width = '40%';
 
