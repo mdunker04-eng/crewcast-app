@@ -123,9 +123,9 @@ const UI = {
       { section: 'Schedule' },
       { id: 'assignments', icon: '📋', label: 'Assignments', path: '/admin/assignments' },
       { id: 'demo-dashboard', icon: '📊', label: 'Dashboard', path: '/admin/demo/dashboard' },
-      { id: 'demo-crowdpulse', icon: '🎯', label: 'CrowdPulse', path: '/admin/demo/crowdpulse' },
+      { id: 'demo-crowdpulse', icon: '🎯', label: 'Attendance Forecast', path: '/admin/demo/crowdpulse' },
       { id: 'demo-stations', icon: '🏗️', label: 'Station View', path: '/admin/demo/stations' },
-      { id: 'demo-coverage', icon: '📈', label: 'Coverage Grid', path: '/admin/demo/coverage' },
+      // Coverage Grid merged into Station View as toggle
       { section: 'Actions' },
       { id: 'demo-storm', icon: '🌧️', label: 'Storm Mode', path: '/admin/demo/storm', style: 'color:#F87171' },
       { id: 'demo-replacement', icon: '⚡', label: 'Auto-Replace', path: '/admin/demo/replacement', badge: '3' },

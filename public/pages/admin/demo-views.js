@@ -51,7 +51,7 @@ function demoChangeWeekend(idx) {
   Router.navigate(path);
 }
 
-// ── CrowdPulse Projections per day ──
+// ── Attendance Forecast Projections per day ──
 const DEMO_CROWD = {
   'May 2': {
     day:'Saturday', date:'May 2, 2026', dayKey:'Sat',
@@ -454,7 +454,7 @@ function renderDemoDashboardContent() {
       '<div class="stat-card"><div class="stat-label">Confirmed</div><div class="stat-value text-green">'+conf+'</div><div class="stat-sub">'+confPct+'% of shifts</div></div>'+
       '<div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value text-amber">'+pend+'</div><div class="stat-sub">'+pendPct+'% no response</div></div>'+
       '<div class="stat-card"><div class="stat-label">Declined</div><div class="stat-value text-red">'+decl+'</div><div class="stat-sub">need coverage</div></div>'+
-      '<div class="stat-card"><div class="stat-label">Est. Visitors</div><div class="stat-value text-violet">'+projTotal.toLocaleString()+'</div><div class="stat-sub">CrowdPulse forecast</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Est. Visitors</div><div class="stat-value text-violet">'+projTotal.toLocaleString()+'</div><div class="stat-sub">Attendance forecast</div></div>'+
     '</div>'+
 
     '<div class="card"><div class="card-header"><div class="card-title">📊 Response Progress</div><span class="badge badge-amber">⏰ Deadline: 8 PM Thursday before</span></div>'+
@@ -502,7 +502,7 @@ function renderDemoDashboard(app) {
 function renderDemoCrowdPulseContent() {
   const days = getDemoSelectedDays();
   return demoDateSelector() +
-    '<h1>🎯 CrowdPulse — Attendance Forecast</h1>'+
+    '<h1>🎯 Attendance Forecast</h1>'+
     '<div class="subtitle">AI-powered staffing projections based on weather, events, history, and local competition</div>'+
 
     days.map(function(day) {
@@ -540,7 +540,7 @@ function renderDemoCrowdPulseContent() {
 
         '<div style="background:rgba(167,139,250,.06);border-radius:8px;padding:10px;margin-top:12px;border:1px solid rgba(167,139,250,.2)">'+
           '<div class="text-xs semi text-violet mb1">📋 Staffing Recommendation</div>'+
-          '<div class="text-xs text-muted">Based on '+d.projected.toLocaleString()+' projected visitors, CrowdPulse recommends <strong class="text-violet">'+d.staffNeeded+' staff</strong> with emphasis on high-traffic areas like Admission, '+(day >= 'May 23' ? 'Strawberry U-Pick, ' : 'Tulip U-Pick, ')+'and Hay Cafe.</div>'+
+          '<div class="text-xs text-muted">Based on '+d.projected.toLocaleString()+' projected visitors, Forecast recommends <strong class="text-violet">'+d.staffNeeded+' staff</strong> with emphasis on high-traffic areas like Admission, '+(day >= 'May 23' ? 'Strawberry U-Pick, ' : 'Tulip U-Pick, ')+'and Hay Cafe.</div>'+
         '</div>'+
       '</div>';
     }).join('');
@@ -553,17 +553,140 @@ function renderDemoCrowdPulse(app) {
 // ═══════════════════════════════════════════════════════
 // RENDER: DEMO STATION VIEW
 // ═══════════════════════════════════════════════════════
+let demoStationViewMode = 'card'; // 'card' or 'grid'
+
+function demoSwitchStationMode(mode) {
+  demoStationViewMode = mode;
+  renderDemoStationView(document.getElementById('app'));
+}
+
+// Show modal to add/remove employees for a station on a given day
+function demoStationManage(stId, day) {
+  const st = DEMO_STATIONS.find(s=>s.id===stId);
+  if(!st) return;
+  const dayKey = DEMO_CROWD[day].dayKey;
+  const arr = DEMO_ASSIGNED[day][stId] || [];
+  const assignedIds = new Set(arr.map(a=>a.employee.id));
+
+  // All employees assigned across all stations this day
+  const allUsed = new Set();
+  Object.values(DEMO_ASSIGNED[day]||{}).forEach(as => as.forEach(a=>allUsed.add(a.employee.id)));
+
+  // Available employees: active, available this day, not assigned elsewhere, have skill for this station (or float)
+  const available = DEMO_EMPLOYEES.filter(e =>
+    e.status === 'active' && !assignedIds.has(e.id) && !allUsed.has(e.id) && e.availability[dayKey] && (e.skills[stId] || stId === 'float')
+  ).sort((a,b) => (b.skills[stId]||0) - (a.skills[stId]||0));
+
+  let body = '<div style="margin-bottom:12px"><div class="semi text-sm">Currently Assigned ('+arr.length+')</div>';
+  if(arr.length === 0) body += '<div class="text-xs text-muted" style="padding:8px 0">No one assigned yet</div>';
+  else {
+    body += '<div style="display:grid;gap:4px;margin-top:6px">';
+    arr.forEach(a => {
+      const e = a.employee;
+      const bgA = a.status==='confirmed'?'52,211,153':a.status==='pending'?'251,191,36':'239,68,68';
+      body += '<div class="flex items-center justify-between" style="padding:6px 8px;background:rgba('+bgA+',.08);border-radius:6px;border:1px solid rgba('+bgA+',.2)">'+
+        '<div><span class="semi text-sm">'+e.firstName+' '+e.lastName+'</span>'+
+        ' <span class="text-xs text-muted">'+demoStatusIcon(a.status)+' '+(e.skills[stId]?'★'+Math.round(e.skills[stId]):'')+'</span></div>'+
+        '<button class="btn btn-ghost btn-sm" style="color:#F87171;font-size:10px;padding:2px 8px" onclick="demoRemoveFromStation(\''+stId+'\',\''+day+'\','+e.id+')">Remove</button></div>';
+    });
+    body += '</div>';
+  }
+
+  body += '<div style="margin-top:14px;border-top:1px solid #334155;padding-top:12px"><div class="semi text-sm">Available to Add ('+available.length+')</div>';
+  if(available.length === 0) body += '<div class="text-xs text-muted" style="padding:8px 0">No available employees with skills for this station</div>';
+  else {
+    body += '<div style="display:grid;gap:4px;margin-top:6px;max-height:200px;overflow-y:auto">';
+    available.slice(0, 15).forEach(e => {
+      const skill = e.skills[stId] || 0;
+      const cls = skill >= 4 ? 'tag-green' : skill >= 3 ? 'tag-amber' : 'tag-red';
+      body += '<div class="flex items-center justify-between" style="padding:6px 8px;background:rgba(30,41,59,.5);border-radius:6px;border:1px solid #334155">'+
+        '<div><span class="semi text-sm">'+e.firstName+' '+e.lastName+'</span>'+
+        ' <span class="tag '+cls+'" style="font-size:9px">★'+Math.round(skill)+'</span>'+
+        ' <span class="text-xs text-muted">'+demoFmtHs(e.availability[dayKey].start)+'-'+demoFmtHs(e.availability[dayKey].end)+'</span></div>'+
+        '<button class="btn btn-success btn-sm" style="font-size:10px;padding:2px 8px" onclick="demoAddToStation(\''+stId+'\',\''+day+'\','+e.id+')">+ Add</button></div>';
+    });
+    if(available.length > 15) body += '<div class="text-xs text-muted" style="padding:4px;text-align:center">+'+(available.length-15)+' more available</div>';
+    body += '</div>';
+  }
+  body += '</div>';
+
+  UI.showModal(st.icon+' '+st.name+' — '+day, body, '<button class="btn btn-secondary" onclick="UI.closeModal()">Done</button>');
+}
+
+function demoAddToStation(stId, day, empId) {
+  const e = DEMO_EMPLOYEES.find(em=>em.id===empId);
+  if(!e) return;
+  if(!DEMO_ASSIGNED[day]) DEMO_ASSIGNED[day] = {};
+  if(!DEMO_ASSIGNED[day][stId]) DEMO_ASSIGNED[day][stId] = [];
+  DEMO_ASSIGNED[day][stId].push({ employee:e, status:'confirmed' });
+  UI.closeModal();
+  demoStationManage(stId, day);
+}
+
+function demoRemoveFromStation(stId, day, empId) {
+  if(!DEMO_ASSIGNED[day] || !DEMO_ASSIGNED[day][stId]) return;
+  DEMO_ASSIGNED[day][stId] = DEMO_ASSIGNED[day][stId].filter(a=>a.employee.id !== empId);
+  UI.closeModal();
+  demoStationManage(stId, day);
+}
+
 function renderDemoStationViewContent() {
   const days = getDemoSelectedDays();
-  return demoDateSelector() +
-    '<h1>🏗️ Station View</h1><div class="subtitle">Employees assigned per station — confirmed, pending, and declined</div>'+
-    days.map(function(day) {
+  const mode = demoStationViewMode;
+
+  let h = demoDateSelector() +
+    '<div class="flex justify-between items-center"><div><h1>🏗️ Station View</h1><div class="subtitle">Employees assigned per station — click a station to manage staff</div></div>'+
+    '<div class="flex gap1">'+
+      '<button class="btn btn-sm '+(mode==='card'?'btn-primary':'btn-secondary')+'" onclick="demoSwitchStationMode(\'card\')">📋 Detail</button>'+
+      '<button class="btn btn-sm '+(mode==='grid'?'btn-primary':'btn-secondary')+'" onclick="demoSwitchStationMode(\'grid\')">📈 Grid</button>'+
+    '</div></div>';
+
+  if(mode === 'grid') {
+    // Coverage grid view
+    const hours = [7,8,9,10,11,12,13,14,15,16,17];
+    h += days.map(day => {
+      const d = DEMO_CROWD[day];
+      if (!d) return '';
+      return '<div class="card"><div class="card-header"><div class="card-title">'+d.weather.icon+' '+d.day+', '+d.date+'</div>'+
+        '<div class="flex gap2">'+
+          '<span class="text-xs"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgba(52,211,153,.3);vertical-align:middle"></span> Full</span>'+
+          '<span class="text-xs"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgba(251,191,36,.3);vertical-align:middle"></span> Partial</span>'+
+          '<span class="text-xs"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgba(239,68,68,.2);vertical-align:middle"></span> Gap</span>'+
+        '</div></div>'+
+        '<div style="overflow-x:auto">'+
+        '<div style="display:grid;grid-template-columns:140px repeat('+hours.length+', 1fr);gap:2px;margin-bottom:4px;min-width:600px">'+
+          '<div></div>'+hours.map(h=>'<div style="text-align:center;font-size:8px;color:#64748B">'+demoFmtHs(h)+'</div>').join('')+
+        '</div>'+
+        DEMO_STATIONS.map(st => {
+          if (st.minDate && day < st.minDate) return '';
+          const need = DEMO_NEEDS[day][st.id] || 0;
+          if(need === 0) return '';
+          const arr = DEMO_ASSIGNED[day][st.id] || [];
+          return '<div style="display:grid;grid-template-columns:140px repeat('+hours.length+', 1fr);gap:2px;margin-bottom:2px;min-width:600px;cursor:pointer" onclick="demoStationManage(\''+st.id+'\',\''+day+'\')">'+
+            '<div class="flex items-center gap1" style="padding-right:6px;overflow:hidden"><span style="font-size:10px">'+st.icon+'</span><span class="text-xs semi" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+st.name+'</span></div>'+
+            hours.map(h => {
+              if(h < st.open || h >= st.close) return '<div class="hcell h-empty">—</div>';
+              const active = arr.filter(a=>a.status!=='declined').length;
+              const confirmed = arr.filter(a=>a.status==='confirmed').length;
+              const hasDecl = arr.some(a=>a.status==='declined');
+              if(active === 0 && hasDecl) return '<div class="hcell h-gap">GAP</div>';
+              if(active === 0) return '<div class="hcell h-empty">—</div>';
+              if(confirmed === active && active >= need) return '<div class="hcell h-full">'+active+'</div>';
+              return '<div class="hcell h-partial">'+active+'</div>';
+            }).join('')+
+          '</div>';
+        }).join('')+
+        '</div></div>';
+    }).join('');
+  } else {
+    // Card/detail view
+    h += days.map(function(day) {
       const d = DEMO_CROWD[day];
       if (!d) return '';
       const dayLabel = d.day+', '+d.date;
       return '<div class="card"><div class="card-header"><div class="card-title">📅 '+dayLabel+'</div>'+
         '<div class="flex gap2"><span class="tag tag-green">✓ '+demoCountAll(day,'confirmed')+'</span><span class="tag tag-amber">⏳ '+demoCountAll(day,'pending')+'</span><span class="tag tag-red">✗ '+demoCountAll(day,'declined')+'</span></div></div>'+
-        '<div style="overflow-x:auto"><table><thead><tr><th>Station</th><th>Need</th><th>Staff</th><th>Coverage</th><th>Status</th></tr></thead><tbody>'+
+        '<div style="overflow-x:auto"><table><thead><tr><th>Station</th><th>Need</th><th>Staff</th><th>Coverage</th><th>Status</th><th></th></tr></thead><tbody>'+
         DEMO_STATIONS.map(st => {
           if (st.minDate && day < st.minDate) return '';
           const need = DEMO_NEEDS[day][st.id] || 0;
@@ -575,7 +698,7 @@ function renderDemoStationViewContent() {
           const badge = hasDecl ? '<span class="badge badge-red">⚠ Gap</span>' : allConf ? '<span class="badge badge-green">✓ Full</span>' : '<span class="badge badge-amber">⏳</span>';
 
           const reportH = Math.max(st.open - (st.peak ? 0.5 : 0.25), 7);
-          return '<tr><td style="white-space:nowrap"><span class="semi">'+st.icon+' '+st.name+'</span><div class="text-xs text-muted">Opens '+demoFmtH(st.open)+'–'+demoFmtH(st.close)+' · <span style="color:var(--amber)">Report '+demoFmtH(reportH)+'</span></div></td>'+
+          return '<tr style="cursor:pointer" onclick="demoStationManage(\''+st.id+'\',\''+day+'\')"><td style="white-space:nowrap"><span class="semi">'+st.icon+' '+st.name+'</span><div class="text-xs text-muted">Opens '+demoFmtH(st.open)+'–'+demoFmtH(st.close)+' · <span style="color:var(--amber)">Report '+demoFmtH(reportH)+'</span></div></td>'+
             '<td class="semi" style="text-align:center">'+need+'</td>'+
             '<td><div class="flex gap1 flex-wrap">'+
               arr.map(a => {
@@ -586,10 +709,14 @@ function renderDemoStationViewContent() {
               }).join('')+
             '</div></td>'+
             '<td style="white-space:nowrap">'+demoCbar(active.length, need)+' <span class="text-xs">'+active.length+'/'+need+'</span></td>'+
-            '<td>'+badge+'</td></tr>';
+            '<td>'+badge+'</td>'+
+            '<td><button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="event.stopPropagation();demoStationManage(\''+st.id+'\',\''+day+'\')">✏️</button></td></tr>';
         }).join('')+
         '</tbody></table></div></div>';
     }).join('');
+  }
+
+  return h;
 }
 
 function renderDemoStationView(app) {
@@ -1371,6 +1498,16 @@ function renderDemoStormContent() {
       '<button class="btn btn-sm btn-danger" onclick="demoStormCloseOutdoor()">🌧️ Close All Outdoor</button>'+
       '<button class="btn btn-sm btn-secondary" style="border-color:rgba(251,191,36,.4);color:#FBBF24" onclick="demoStormKeepEssential()">🏠 Indoor Only</button>'+
       '<button class="btn btn-sm btn-secondary" onclick="demoStormReset()">↩️ Reset</button>'+
+    '</div>'+
+    '<div class="flex gap2 flex-wrap" style="margin-top:4px">'+
+      '<span class="text-xs text-muted semi" style="align-self:center">Cut by %:</span>'+
+      '<button class="btn btn-sm btn-secondary" onclick="demoStormCutByPct(25)">25%</button>'+
+      '<button class="btn btn-sm btn-secondary" onclick="demoStormCutByPct(33)">33%</button>'+
+      '<button class="btn btn-sm btn-secondary" onclick="demoStormCutByPct(50)">50%</button>'+
+      '<button class="btn btn-sm btn-secondary" onclick="demoStormCutByPct(75)">75%</button>'+
+      '<button class="btn btn-sm btn-secondary" style="border-color:rgba(248,113,113,.4);color:#F87171" onclick="demoStormCutByPct(100)">100%</button>'+
+      '<input type="number" id="storm-custom-pct" min="0" max="100" placeholder="Custom %" style="width:80px;background:#0F172A;border:1px solid #475569;border-radius:4px;padding:4px 6px;color:#E2E8F0;font-size:12px;text-align:center">'+
+      '<button class="btn btn-sm btn-secondary" onclick="var v=document.getElementById(\'storm-custom-pct\').value;if(v)demoStormCutByPct(parseInt(v))">Apply</button>'+
     '</div></div></div>';
 
   const cutColor = pctCut > 50 ? '#F87171' : pctCut > 20 ? '#FBBF24' : '#34D399';
