@@ -1,6 +1,8 @@
 // ═══════════════════════════════════════════════════════
 // CrewCast — Employee Time Clock Page
 // Shows QR badge + clock in/out status
+// v1 patch: routes punches through OfflineQueue so a flaky
+// cell signal at the orchard never loses a clock-in.
 // ═══════════════════════════════════════════════════════
 
 async function renderTimeClock(app) {
@@ -11,8 +13,21 @@ async function renderTimeClock(app) {
         <h1>Time Clock</h1>
       </div>
       <div id="timeclock-content">${UI.loading()}</div>
+      <div id="offline-badge" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#f59e0b;color:#0a0a0a;padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:500"></div>
     </div>
   `;
+
+  // Show pending-queue count if any offline punches are waiting
+  try {
+    if (window.OfflineQueue) {
+      const pending = await OfflineQueue.count();
+      const badge = document.getElementById('offline-badge');
+      if (badge && pending > 0) {
+        badge.style.display = 'block';
+        badge.textContent = `${pending} offline punch${pending > 1 ? 'es' : ''} pending sync`;
+      }
+    }
+  } catch (e) { /* ignore */ }
 
   try {
     const [statusData, qrData] = await Promise.all([
@@ -95,8 +110,12 @@ async function renderTimeClock(app) {
 async function doManualClockIn() {
   try {
     const stationId = document.getElementById('manual-station')?.value || null;
-    await API.clockIn(stationId || undefined);
-    UI.toast('Clocked in!');
+    const result = await API.clockIn(stationId || undefined);
+    if (result && result.queued) {
+      UI.toast('Saved offline — will sync when online', 'warning');
+    } else {
+      UI.toast('Clocked in!');
+    }
     renderTimeClock(document.getElementById('app'));
   } catch (err) {
     UI.toast(err.message, 'error');
@@ -105,8 +124,12 @@ async function doManualClockIn() {
 
 async function doClockOut() {
   try {
-    await API.clockOut();
-    UI.toast('Clocked out!');
+    const result = await API.clockOut();
+    if (result && result.queued) {
+      UI.toast('Saved offline — will sync when online', 'warning');
+    } else {
+      UI.toast('Clocked out!');
+    }
     renderTimeClock(document.getElementById('app'));
   } catch (err) {
     UI.toast(err.message, 'error');

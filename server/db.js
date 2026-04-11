@@ -138,6 +138,43 @@ async function initDB() {
         expires_at TIMESTAMPTZ NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+      -- Time Tracking: clock in/out entries
+      CREATE TABLE IF NOT EXISTS time_entries (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        employee_id INTEGER NOT NULL REFERENCES employees(id),
+        shift_id INTEGER REFERENCES shifts(id),
+        station_id INTEGER REFERENCES stations(id),
+        kiosk_id INTEGER,
+        clock_in TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        clock_out TIMESTAMPTZ,
+        clock_in_method VARCHAR(20) DEFAULT 'manual',
+        edited_by INTEGER REFERENCES employees(id),
+        edited_at TIMESTAMPTZ,
+        notes TEXT,
+        client_punch_id TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_time_entries_business_date
+        ON time_entries (business_id, clock_in);
+      CREATE INDEX IF NOT EXISTS idx_time_entries_employee_open
+        ON time_entries (employee_id, clock_out);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_time_entries_client_punch
+        ON time_entries (employee_id, client_punch_id)
+        WHERE client_punch_id IS NOT NULL;
+
+      -- Time Tracking: kiosks (tablets used for clock in/out)
+      CREATE TABLE IF NOT EXISTS kiosks (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        station_id INTEGER REFERENCES stations(id),
+        device_name VARCHAR(100) NOT NULL,
+        pin_code VARCHAR(10),
+        is_active BOOLEAN DEFAULT true,
+        last_seen TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
     `);
     // Add staff_needed column if it doesn't exist (table may predate this column)
     await client.query(`
@@ -155,6 +192,17 @@ async function initDB() {
     `).catch(() => {});
 
     console.log('Database schema initialized');
+    // Time tracking: ensure client_punch_id column exists (idempotent dedupe key)
+    await client.query(`
+      ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS client_punch_id TEXT
+    `).catch(() => {});
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_time_entries_client_punch
+        ON time_entries (employee_id, client_punch_id)
+        WHERE client_punch_id IS NOT NULL
+    `).catch(() => {});
+
+
 
     // Migration: add min_staff / max_staff columns to stations
     try {
@@ -213,28 +261,6 @@ async function initDB() {
         const { rows: existing } = await client.query(
           'SELECT id FROM station_categories WHERE business_id = $1 LIMIT 1', [biz.id]
         );
-        // Always ensure Reliability category exists (even for existing businesses)
-        await client.query(
-          'INSERT INTO station_categories (business_id, name, icon, sort_order) VALUES ($1, $2, $3, $4) ON CONFLICT (business_id, name) DO NOTHING',
-          [biz.id, 'Reliability', '⏱️', 6]
-        );
-        // Default all employees to 3-star Reliability if not yet rated
-        const { rows: relCatRows } = await client.query(
-          'SELECT id FROM station_categories WHERE business_id = $1 AND name = $2', [biz.id, 'Reliability']
-        );
-        if (relCatRows.length > 0) {
-          const relCatId = relCatRows[0].id;
-          const { rows: empRows } = await client.query(
-            'SELECT id FROM employees WHERE business_id = $1 AND active = true', [biz.id]
-          );
-          for (const emp of empRows) {
-            await client.query(
-              'INSERT INTO employee_category_ratings (employee_id, category_id, rating) VALUES ($1, $2, 3) ON CONFLICT (employee_id, category_id) DO NOTHING',
-              [emp.id, relCatId]
-            );
-          }
-        }
-
         if (existing.length === 0) {
           const cats = [
             ['Guest Services', '🎟️', 1],
