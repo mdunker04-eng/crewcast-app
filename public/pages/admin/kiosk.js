@@ -1,8 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // CrewCast — Kiosk Mode (QR Scanner)
 // Full-screen camera scanner for employee clock in/out
-// v1 patch: scans go through OfflineQueue so a kiosk with
-// no cell signal still captures punches and replays them.
 // ═══════════════════════════════════════════════════════
 
 let kioskScanner = null;
@@ -27,7 +25,6 @@ async function renderKiosk(app) {
           </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <div id="kiosk-queue-pill" style="display:none;background:#f59e0b;color:#0a0a0a;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600"></div>
           <div id="kiosk-time" style="font-size:24px;font-weight:600;color:white;font-variant-numeric:tabular-nums"></div>
           <button class="btn btn-ghost btn-sm" style="color:white" onclick="exitKiosk()">Exit</button>
         </div>
@@ -68,7 +65,6 @@ async function renderKiosk(app) {
       .kiosk-result { text-align:center;padding:32px;border-radius:16px;margin-top:24px;width:100%;max-width:500px;animation:kioskFade 0.3s ease }
       .kiosk-result.success { background:rgba(16,185,129,0.15);border:2px solid #10b981 }
       .kiosk-result.clock-out { background:rgba(239,68,68,0.15);border:2px solid #ef4444 }
-      .kiosk-result.queued { background:rgba(245,158,11,0.15);border:2px solid #f59e0b }
       .kiosk-footer { margin-top:24px;text-align:center }
       @keyframes kioskFade { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
     `;
@@ -96,26 +92,8 @@ async function renderKiosk(app) {
   updateActiveCount();
   setInterval(updateActiveCount, 30000);
 
-  // Update offline-queue pill
-  updateKioskQueuePill();
-  setInterval(updateKioskQueuePill, 5000);
-
   // Start camera scanner
   startKioskScanner();
-}
-
-async function updateKioskQueuePill() {
-  const pill = document.getElementById('kiosk-queue-pill');
-  if (!pill || !window.OfflineQueue) return;
-  try {
-    const n = await OfflineQueue.count();
-    if (n > 0) {
-      pill.style.display = 'inline-block';
-      pill.textContent = `${n} queued`;
-    } else {
-      pill.style.display = 'none';
-    }
-  } catch (e) { /* ignore */ }
 }
 
 function updateKioskClock() {
@@ -183,43 +161,17 @@ async function onKioskScanSuccess(decodedText) {
       throw new Error('Not a CrewCAST badge');
     }
 
-    // Pull employee name from the parsed payload if available (for queued display)
-    const fallbackName = parsed.name || 'Employee';
-
-    // Process the scan — may go through OfflineQueue if offline
-    const result = await API.scanQR(
-      decodedText,
-      kioskStationId ? parseInt(kioskStationId) : undefined,
-      kioskId ? parseInt(kioskId) : undefined
-    );
-
-    // Queued offline — show amber confirmation
-    if (result && result.queued) {
-      resultEl.style.display = 'block';
-      resultEl.className = 'kiosk-result queued';
-      resultEl.innerHTML = `
-        <div style="font-size:48px;margin-bottom:8px">&#9203;</div>
-        <div style="font-size:22px;font-weight:700;color:white">${fallbackName}</div>
-        <div style="font-size:16px;color:#f59e0b;margin-top:8px">Saved offline — will sync</div>
-        <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:4px">${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
-      `;
-      playBeep(600);
-      updateKioskQueuePill();
-      setTimeout(() => {
-        if (resultEl) resultEl.style.display = 'none';
-        kioskScanCooldown = false;
-      }, 2500);
-      return;
-    }
+    // Process the scan
+    const result = await API.scanQR(decodedText, kioskStationId ? parseInt(kioskStationId) : undefined, kioskId ? parseInt(kioskId) : undefined);
 
     const isClockIn = result.action === 'clock_in';
-    const emp = result.employee || { firstName: fallbackName, lastName: '' };
+    const emp = result.employee;
 
     resultEl.style.display = 'block';
     resultEl.className = `kiosk-result ${isClockIn ? 'success' : 'clock-out'}`;
     resultEl.innerHTML = `
       <div style="font-size:48px;margin-bottom:8px">${isClockIn ? '&#9989;' : '&#128075;'}</div>
-      <div style="font-size:24px;font-weight:700;color:white">${emp.firstName} ${emp.lastName || ''}</div>
+      <div style="font-size:24px;font-weight:700;color:white">${emp.firstName} ${emp.lastName}</div>
       <div style="font-size:18px;color:${isClockIn ? '#10b981' : '#ef4444'};margin-top:8px">${isClockIn ? 'Clocked In' : 'Clocked Out'}</div>
       <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:4px">${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
     `;

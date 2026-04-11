@@ -46,12 +46,6 @@ Router.add('/assignments', (app) => {
   renderAssignmentsEmployee(app);
 });
 
-// ── Time tracking v1 (employee) ──
-Router.add('/timeclock', (app) => {
-  if (!API.isLoggedIn()) return Router.navigate('/login', true);
-  renderTimeClock(app);
-});
-
 // Admin routes
 Router.add('/admin/welcome', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
@@ -93,34 +87,10 @@ Router.add('/admin/assignments', (app) => {
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderAssignmentsAdmin(app);
 });
-
-// ── Time tracking v1 (admin) ──
-Router.add('/admin/kiosk', (app) => {
+Router.add('/admin/cg-onboard', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
   if (!API.isAdmin()) return Router.navigate('/', true);
-  renderKiosk(app);
-});
-Router.add('/admin/timesheet', (app) => {
-  if (!API.isLoggedIn()) return Router.navigate('/login', true);
-  if (!API.isAdmin()) return Router.navigate('/', true);
-  if (typeof renderTimesheet === 'function') renderTimesheet(app);
-  else app.innerHTML = '<div class="page"><div class="card" style="padding:20px">Timesheet view coming soon.</div></div>';
-});
-Router.add('/admin/time-dashboard', (app) => {
-  if (!API.isLoggedIn()) return Router.navigate('/login', true);
-  if (!API.isAdmin()) return Router.navigate('/', true);
-  if (typeof renderTimeDashboard === 'function') renderTimeDashboard(app);
-  else app.innerHTML = '<div class="page"><div class="card" style="padding:20px">Time dashboard coming soon.</div></div>';
-});
-Router.add('/admin/badges', (app) => {
-  if (!API.isLoggedIn()) return Router.navigate('/login', true);
-  if (!API.isAdmin()) return Router.navigate('/', true);
-  renderBadges(app);
-});
-Router.add('/admin/wiw-reconcile', (app) => {
-  if (!API.isLoggedIn()) return Router.navigate('/login', true);
-  if (!API.isAdmin()) return Router.navigate('/', true);
-  renderWiwReconcile(app);
+  renderCGOnboard(app);
 });
 
 // Demo feature views (all require admin)
