@@ -124,4 +124,81 @@ const API = {
   bulkAddStations: (stations) => API.post('/api/stations/bulk', { stations }),
   updateStation: (id, data) => API.put(`/api/stations/${id}`, data),
   deleteStation: (id) => API.delete(`/api/stations/${id}`),
+
+  // ── Time Tracking ──
+  getClockStatus: () => API.get('/api/time/status'),
+  getQRCode: (employeeId) => API.get(`/api/time/qr/${employeeId}`),
+  clockIn: (stationId) => {
+    if (typeof OfflineQueue !== 'undefined') {
+      return OfflineQueue.sendOrQueue({
+        url: '/api/time/clock-in',
+        body: { stationId },
+        kind: 'clock_in'
+      });
+    }
+    return API.post('/api/time/clock-in', { stationId });
+  },
+  clockOut: () => {
+    if (typeof OfflineQueue !== 'undefined') {
+      return OfflineQueue.sendOrQueue({
+        url: '/api/time/clock-out',
+        body: {},
+        kind: 'clock_out'
+      });
+    }
+    return API.post('/api/time/clock-out', {});
+  },
+  scanQR: (payload, stationId, kioskId) => {
+    if (typeof OfflineQueue !== 'undefined') {
+      return OfflineQueue.sendOrQueue({
+        url: '/api/time/scan',
+        body: { payload, stationId, kioskId },
+        kind: 'scan'
+      });
+    }
+    return API.post('/api/time/scan', { payload, stationId, kioskId });
+  },
+  kioskScan: (kioskId, pinCode, payload, stationId) => {
+    if (typeof OfflineQueue !== 'undefined') {
+      return OfflineQueue.sendOrQueue({
+        url: '/api/time/kiosk-scan',
+        body: { kioskId, pinCode, payload, stationId },
+        kind: 'kiosk_scan'
+      });
+    }
+    return API.post('/api/time/kiosk-scan', { kioskId, pinCode, payload, stationId });
+  },
+  getActiveEmployees: () => API.get('/api/time/active'),
+  getTimeEntries: (params) => {
+    const qs = new URLSearchParams(params).toString();
+    return API.get(`/api/time/entries${qs ? '?' + qs : ''}`);
+  },
+  editTimeEntry: (id, data) => API.put(`/api/time/entries/${id}`, data),
+  exportTimeCsv: (startDate, endDate) => {
+    const url = `/api/time/export?startDate=${startDate}&endDate=${endDate}`;
+    return fetch(url, { headers: { 'Authorization': 'Bearer ' + API.token } })
+      .then(r => r.blob());
+  },
+  getTimeDashboard: () => API.get('/api/time/dashboard'),
+  getKiosks: () => API.get('/api/time/kiosks'),
+  createKiosk: (data) => API.post('/api/time/kiosks', data),
+
+  // ── Badges (v1 new) ──
+  downloadBadgesPDF: () => {
+    return fetch('/api/time/badges-pdf', {
+      headers: { 'Authorization': 'Bearer ' + API.token }
+    }).then(r => {
+      if (!r.ok) throw new Error('Failed to generate badges PDF');
+      return r.blob();
+    });
+  },
+
+  // ── WIW Reconciliation (v1 new) ──
+  reconcileWIW: (csv, startDate, endDate) =>
+    API.post('/api/time/reconcile', { csv, startDate, endDate }),
+
+  // ── Late/No-show check (v1 new) ──
+  lateCheck: (notify = false) =>
+    API.get(`/api/time/late-check${notify ? '?notify=1' : ''}`),
+
 };
