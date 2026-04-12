@@ -388,15 +388,21 @@ async function showAutoFillModal(scheduleId) {
     </div>
 
     <div class="form-group">
-      <label class="form-label">Station Breakdown <span class="text-xs text-muted">(auto-scaled)</span></label>
-      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px" id="af-station-list">
+      <label class="form-label">Station Breakdown <span class="text-xs text-muted">(toggle stations on/off · auto-scaled)</span></label>
+      <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px" id="af-station-list">
         ${stations.map(s => `
-          <div class="flex justify-between items-center" style="padding:6px 0;border-bottom:1px solid rgba(51,65,85,.2)" data-station="${s.name}" data-min="${s.min_staff || 1}" data-default="${s.staff_needed || 0}" data-max="${s.max_staff || 0}" data-open="${s.open_time}" data-close="${s.close_time}">
-            <span class="text-sm semi" style="flex:1">${s.name}</span>
+          <div class="flex items-center" style="padding:6px 0;border-bottom:1px solid rgba(51,65,85,.2);gap:10px" data-station="${s.name}" data-enabled="1" data-min="${s.min_staff || 1}" data-default="${s.staff_needed || 0}" data-max="${s.max_staff || 0}" data-open="${s.open_time}" data-close="${s.close_time}">
+            <label style="display:flex;align-items:center;cursor:pointer;gap:6px;flex:1">
+              <input type="checkbox" class="af-station-toggle" checked
+                onchange="onStationToggle(this)"
+                style="width:16px;height:16px;accent-color:var(--purple);cursor:pointer">
+              <span class="text-sm semi af-station-label">${s.name}</span>
+            </label>
             <span class="text-xs af-station-scaled" style="color:var(--purple-light);font-weight:600;min-width:40px;text-align:right">${s.staff_needed || 0}</span>
           </div>
         `).join('')}
       </div>
+      <div class="text-xs text-muted mt-1">Uncheck a station to exclude it from this auto-fill run.</div>
     </div>
 
     <div id="autofill-summary" class="card" style="background:var(--bg-primary);padding:12px;margin-bottom:8px">
@@ -439,6 +445,19 @@ async function showAutoFillModal(scheduleId) {
   onTotalStaffChange(defaultTotal);
 }
 
+function onStationToggle(cb) {
+  const row = cb.closest('[data-station]');
+  if (!row) return;
+  row.dataset.enabled = cb.checked ? '1' : '0';
+  // Dim disabled rows so the state is obvious
+  row.style.opacity = cb.checked ? '1' : '0.45';
+  const label = row.querySelector('.af-station-scaled');
+  if (label && !cb.checked) label.textContent = '—';
+  // Re-scale staff across remaining stations
+  const input = document.getElementById('af-total-input');
+  onTotalStaffChange(input ? input.value : 0);
+}
+
 function onTotalStaffChange(val) {
   const total = parseInt(val) || 0;
   // Sync slider and input
@@ -447,11 +466,13 @@ function onTotalStaffChange(val) {
   if (slider && slider.value != total) slider.value = total;
   if (input && input.value != total) input.value = total;
 
-  // Proportionally scale stations
+  // Proportionally scale stations (only enabled ones)
   const rows = document.querySelectorAll('#af-station-list [data-station]');
   const defaults = [];
   let defaultSum = 0;
   rows.forEach(row => {
+    const enabled = row.dataset.enabled !== '0';
+    if (!enabled) return;
     const def = parseInt(row.dataset.default) || 1;
     const min = parseInt(row.dataset.min) || 1;
     const max = parseInt(row.dataset.max) || def;
@@ -459,8 +480,7 @@ function onTotalStaffChange(val) {
     defaultSum += def;
   });
 
-  // Scale each station proportionally, clamped to min/max
-  let allocated = 0;
+  // Scale each enabled station proportionally, clamped to min/max
   const scaled = defaults.map(d => {
     let n = Math.round((d.def / (defaultSum || 1)) * total);
     n = Math.max(d.min, Math.min(d.max, n));
@@ -473,10 +493,14 @@ function onTotalStaffChange(val) {
     else if (diff < 0 && scaled[i] > defaults[i].min) { scaled[i]--; diff++; }
   }
 
-  rows.forEach((row, i) => {
-    const label = row.querySelector('.af-station-scaled');
+  // Apply scaled values to enabled rows; disabled rows stay at 0
+  defaults.forEach((d, i) => {
+    const label = d.row.querySelector('.af-station-scaled');
     if (label) label.textContent = scaled[i];
-    row.dataset.scaled = scaled[i];
+    d.row.dataset.scaled = scaled[i];
+  });
+  rows.forEach(row => {
+    if (row.dataset.enabled === '0') row.dataset.scaled = '0';
   });
 
   // Update summary
@@ -546,9 +570,10 @@ async function executeAutoFill(scheduleId) {
     return score;
   }
 
-  // Collect station requests with scaled staff counts
+  // Collect station requests with scaled staff counts (skip disabled stations)
   const stationRequests = [];
   stationRows.forEach(row => {
+    if (row.dataset.enabled === '0') return;
     const scaled = parseInt(row.dataset.scaled) || parseInt(row.dataset.default) || 1;
     if (scaled > 0) {
       stationRequests.push({
@@ -559,6 +584,10 @@ async function executeAutoFill(scheduleId) {
       });
     }
   });
+  if (stationRequests.length === 0) {
+    UI.toast('Enable at least one station', 'error');
+    return;
+  }
 
   // Build shifts for EACH selected date
   const shifts = [];

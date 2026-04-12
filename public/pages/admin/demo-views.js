@@ -26,19 +26,30 @@ const DEMO_STATIONS = [
   { id:'float',      name:'Float/General',      icon:'🔄', open:9,  close:17, indoor:false, revPerHr:0,   peak:false, note:'Fill gaps, breaks, surge' },
 ];
 
-// ── Spring 2026 Calendar (real CG Sat-Sun schedule) ──
+// ── Spring 2026 Calendar (real CG — weekend core + optional Fri for 5-6 day orchards) ──
+// Each weekend has a weekend-only `days` list and an extended `weekDays` list
+// that includes the Friday before it. The Day Scope toggle picks which to use.
 const CG_SPRING_WEEKENDS = [
-  { id:'w1', label:'Opening Weekend — May 2-3',               days:['May 2','May 3'],            tag:'Tulip Peak' },
-  { id:'w2', label:"Mother's Day Weekend — May 9-10",         days:['May 9','May 10'],           tag:"Mother's Day" },
-  { id:'w3', label:'Mid-May Weekend — May 16-17',             days:['May 16','May 17'],          tag:'Spring Fun' },
-  { id:'w4', label:'Strawberry + Memorial Day — May 23-25',   days:['May 23','May 24','May 25'], tag:'Strawberry Opens' },
-  { id:'w5', label:'Season Finale — May 30-31',               days:['May 30','May 31'],          tag:'Last Weekend' },
+  { id:'w1', label:'Opening Weekend — May 2-3',             days:['May 2','May 3'],            weekDays:['May 1','May 2','May 3'],             tag:'Tulip Peak' },
+  { id:'w2', label:"Mother's Day Weekend — May 9-10",       days:['May 9','May 10'],           weekDays:['May 8','May 9','May 10'],            tag:"Mother's Day" },
+  { id:'w3', label:'Mid-May Weekend — May 16-17',           days:['May 16','May 17'],          weekDays:['May 15','May 16','May 17'],          tag:'Spring Fun' },
+  { id:'w4', label:'Strawberry + Memorial Day — May 23-25', days:['May 23','May 24','May 25'], weekDays:['May 22','May 23','May 24','May 25'], tag:'Strawberry Opens' },
+  { id:'w5', label:'Season Finale — May 30-31',             days:['May 30','May 31'],          weekDays:['May 29','May 30','May 31'],          tag:'Last Weekend' },
 ];
 
 let DEMO_SELECTED_WEEKEND = 0;
+// 'sat-sun' (default, Steve's real ops) or 'fri-sun' (orchards open 5-6 days/week)
+let DEMO_DAY_SCOPE = 'sat-sun';
 
 function getDemoSelectedDays() {
-  return CG_SPRING_WEEKENDS[DEMO_SELECTED_WEEKEND].days;
+  const wk = CG_SPRING_WEEKENDS[DEMO_SELECTED_WEEKEND];
+  return DEMO_DAY_SCOPE === 'fri-sun' ? wk.weekDays : wk.days;
+}
+
+function demoChangeDayScope(scope) {
+  DEMO_DAY_SCOPE = scope;
+  const path = window.location.hash.replace('#','') || '/admin/demo/dashboard';
+  Router.navigate(path);
 }
 
 function demoChangeWeekend(idx) {
@@ -53,6 +64,18 @@ function demoChangeWeekend(idx) {
 
 // ── Attendance Forecast Projections per day ──
 const DEMO_CROWD = {
+  'May 1': {
+    day:'Friday', date:'May 1, 2026', dayKey:'Fri',
+    weather:{ temp:71, condition:'Sunny', icon:'☀️', wind:'7 mph SW', precip:'5%' },
+    projected: 1400, confidence: 82,
+    factors: [
+      { label:'Friday — pre-weekend trickle (homeschool + retirees)', impact:'-50%', type:'down' },
+      { label:'Opening day of season', impact:'+18%', type:'up' },
+      { label:'Tulips at peak bloom', impact:'+12%', type:'up' },
+    ],
+    competing: [],
+    staffNeeded: 24,
+  },
   'May 2': {
     day:'Saturday', date:'May 2, 2026', dayKey:'Sat',
     weather:{ temp:73, condition:'Sunny', icon:'☀️', wind:'8 mph SW', precip:'5%' },
@@ -76,6 +99,18 @@ const DEMO_CROWD = {
     ],
     competing: [],
     staffNeeded: 35,
+  },
+  'May 8': {
+    day:'Friday', date:'May 8, 2026', dayKey:'Fri',
+    weather:{ temp:74, condition:'Sunny', icon:'☀️', wind:'5 mph S', precip:'0%' },
+    projected: 1250, confidence: 80,
+    factors: [
+      { label:'Friday — light crowd day', impact:'-50%', type:'down' },
+      { label:"Mother's Day Eve Eve — gift shop uptick", impact:'+10%', type:'up' },
+      { label:'Perfect weather', impact:'+8%', type:'up' },
+    ],
+    competing: [],
+    staffNeeded: 22,
   },
   'May 9': {
     day:'Saturday', date:'May 9, 2026', dayKey:'Sat',
@@ -101,6 +136,18 @@ const DEMO_CROWD = {
     competing: [],
     staffNeeded: 48,
   },
+  'May 15': {
+    day:'Friday', date:'May 15, 2026', dayKey:'Fri',
+    weather:{ temp:70, condition:'Cloudy', icon:'☁️', wind:'11 mph W', precip:'25%' },
+    projected: 1050, confidence: 76,
+    factors: [
+      { label:'Friday — mid-season light day', impact:'-50%', type:'down' },
+      { label:'Cool and cloudy', impact:'-12%', type:'down' },
+      { label:'School field trip booking (Earlham Elementary)', impact:'+15%', type:'up' },
+    ],
+    competing: [],
+    staffNeeded: 20,
+  },
   'May 16': {
     day:'Saturday', date:'May 16, 2026', dayKey:'Sat',
     weather:{ temp:72, condition:'Partly Cloudy', icon:'⛅', wind:'10 mph W', precip:'15%' },
@@ -123,6 +170,18 @@ const DEMO_CROWD = {
     ],
     competing: [],
     staffNeeded: 30,
+  },
+  'May 22': {
+    day:'Friday', date:'May 22, 2026', dayKey:'Fri',
+    weather:{ temp:78, condition:'Sunny', icon:'☀️', wind:'6 mph SW', precip:'5%' },
+    projected: 1650, confidence: 84,
+    factors: [
+      { label:'Friday — Memorial Day weekend kickoff', impact:'-35%', type:'down' },
+      { label:'Early travelers arriving, schools letting out', impact:'+22%', type:'up' },
+      { label:'Warm sunny day, strawberries opening Saturday', impact:'+12%', type:'up' },
+    ],
+    competing: [],
+    staffNeeded: 28,
   },
   'May 23': {
     day:'Saturday', date:'May 23, 2026', dayKey:'Sat',
@@ -159,6 +218,18 @@ const DEMO_CROWD = {
     ],
     competing: [],
     staffNeeded: 45,
+  },
+  'May 29': {
+    day:'Friday', date:'May 29, 2026', dayKey:'Fri',
+    weather:{ temp:77, condition:'Partly Cloudy', icon:'⛅', wind:'8 mph NW', precip:'15%' },
+    projected: 900, confidence: 74,
+    factors: [
+      { label:'Friday — season winding down', impact:'-55%', type:'down' },
+      { label:'Shorter hours (9 AM - 2 PM)', impact:'-15%', type:'down' },
+      { label:'Strawberry U-Pick still pulling regulars', impact:'+12%', type:'up' },
+    ],
+    competing: [],
+    staffNeeded: 18,
   },
   'May 30': {
     day:'Saturday', date:'May 30, 2026', dayKey:'Sat',
@@ -247,6 +318,8 @@ function genDemoEmployee(i) {
   if(Math.random() > .1)  avail['Sat'] = { start: Math.random() > .7 ? 10 : (Math.random() > .5 ? 8 : 9), end: Math.random() > .7 ? 15 : 17 };
   if(Math.random() > .15) avail['Sun'] = { start: Math.random() > .6 ? 10 : 9, end: Math.random() > .6 ? 15 : 17 };
   if(Math.random() > .3)  avail['Mon'] = { start: Math.random() > .5 ? 10 : 9, end: Math.random() > .5 ? 15 : 17 };
+  // Friday availability ~55% (students/teens in school, adults at day jobs)
+  if(Math.random() > .45) avail['Fri'] = { start: Math.random() > .5 ? 15 : 12, end: Math.random() > .5 ? 18 : 17 };
 
   return { id:i+1, firstName:fn, lastName:ln, phone:'(515) 555-' + String(1000+i).padStart(4,'0'), years:yrs, overall, reliability, skills, availability:avail, status: i < 55 ? 'active' : 'inactive' };
 }
@@ -377,6 +450,9 @@ function demoBadgeCls(s) { return s==='confirmed'?'badge-green':s==='declined'?'
 
 // ── Weekend Selector ──
 function demoDateSelector() {
+  const satOn = DEMO_DAY_SCOPE === 'sat-sun';
+  const activeStyle = 'background:var(--purple);color:#fff;border-color:var(--purple)';
+  const idleStyle = 'background:var(--bg-input);color:var(--text-muted);border-color:var(--border)';
   return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">'+
     '<label class="text-xs semi text-muted">Weekend:</label>'+
     '<select onchange="demoChangeWeekend(parseInt(this.value))" style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text);font-size:13px;cursor:pointer;min-width:220px">'+
@@ -385,6 +461,11 @@ function demoDateSelector() {
     ).join('')+
     '</select>'+
     '<span class="badge badge-violet">'+CG_SPRING_WEEKENDS[DEMO_SELECTED_WEEKEND].tag+'</span>'+
+    '<div style="display:inline-flex;align-items:center;gap:0;border-radius:6px;overflow:hidden;margin-left:auto">'+
+      '<span class="text-xs text-muted" style="margin-right:6px">Days:</span>'+
+      '<button onclick="demoChangeDayScope(\'sat-sun\')" style="padding:6px 10px;border:1px solid;border-right:none;border-radius:6px 0 0 6px;font-size:12px;font-weight:600;cursor:pointer;'+(satOn?activeStyle:idleStyle)+'">Sat-Sun</button>'+
+      '<button onclick="demoChangeDayScope(\'fri-sun\')" style="padding:6px 10px;border:1px solid;border-radius:0 6px 6px 0;font-size:12px;font-weight:600;cursor:pointer;'+(!satOn?activeStyle:idleStyle)+'">Fri-Sun</button>'+
+    '</div>'+
   '</div>';
 }
 
@@ -499,11 +580,103 @@ function renderDemoDashboard(app) {
 // ═══════════════════════════════════════════════════════
 // RENDER: DEMO CROWDPULSE
 // ═══════════════════════════════════════════════════════
+
+// Customization (persisted to localStorage)
+const DEMO_FORECAST_DEFAULTS = { Fri:50, Sat:100, Sun:80, Mon:90 };
+function demoGetForecastMultipliers() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('cc_demo_forecast_mults') || 'null');
+    return Object.assign({}, DEMO_FORECAST_DEFAULTS, saved || {});
+  } catch (e) { return Object.assign({}, DEMO_FORECAST_DEFAULTS); }
+}
+function demoSaveForecastMultipliers() {
+  const mults = {};
+  ['Fri','Sat','Sun','Mon'].forEach(dk => {
+    const el = document.getElementById('fc-mult-'+dk);
+    if (el) mults[dk] = parseInt(el.value) || DEMO_FORECAST_DEFAULTS[dk];
+  });
+  localStorage.setItem('cc_demo_forecast_mults', JSON.stringify(mults));
+  UI.toast('Forecast multipliers saved. Sunday = '+mults.Sun+'% of Saturday.');
+  const path = window.location.hash.replace('#','') || '/admin/demo/crowdpulse';
+  Router.navigate(path);
+}
+function demoGetHistorical() {
+  try { return JSON.parse(localStorage.getItem('cc_demo_historical') || '[]'); }
+  catch (e) { return []; }
+}
+function demoAddHistorical() {
+  const date = document.getElementById('hist-date').value;
+  const visitors = parseInt(document.getElementById('hist-visitors').value);
+  const note = document.getElementById('hist-note').value || '';
+  if (!date || !visitors) { UI.toast('Date and visitor count required', 'error'); return; }
+  const rec = demoGetHistorical();
+  rec.push({ date, visitors, note, addedAt: new Date().toISOString() });
+  localStorage.setItem('cc_demo_historical', JSON.stringify(rec));
+  UI.toast('Historical record added — forecast will refine over time');
+  const path = window.location.hash.replace('#','') || '/admin/demo/crowdpulse';
+  Router.navigate(path);
+}
+function demoRemoveHistorical(idx) {
+  const rec = demoGetHistorical();
+  rec.splice(idx, 1);
+  localStorage.setItem('cc_demo_historical', JSON.stringify(rec));
+  const path = window.location.hash.replace('#','') || '/admin/demo/crowdpulse';
+  Router.navigate(path);
+}
+
 function renderDemoCrowdPulseContent() {
   const days = getDemoSelectedDays();
+  const mults = demoGetForecastMultipliers();
+  const historical = demoGetHistorical();
+
+  const customizeCard =
+    '<div class="card" style="border-color:rgba(167,139,250,.25)">'+
+      '<div class="card-header"><div class="card-title text-violet">⚙️ Customize Forecast</div>'+
+        '<span class="text-xs text-muted">Saturday = baseline (100%)</span></div>'+
+      '<div class="text-xs text-muted mb2">Adjust how busy each day of the week is relative to Saturday. These multipliers feed the projection model.</div>'+
+      '<div class="grid4 mb2">'+
+        ['Fri','Sat','Sun','Mon'].map(dk =>
+          '<div style="background:#0F172A;border-radius:8px;padding:10px">'+
+            '<div class="text-xs semi text-muted mb1">'+({Fri:'Friday',Sat:'Saturday',Sun:'Sunday',Mon:'Monday'}[dk])+'</div>'+
+            '<div style="display:flex;align-items:center;gap:4px">'+
+              '<input type="number" id="fc-mult-'+dk+'" value="'+mults[dk]+'" min="0" max="200" '+
+                (dk==='Sat'?'disabled':'')+' '+
+                'style="width:60px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text);font-size:13px'+(dk==='Sat'?';opacity:.6':'')+'">'+
+              '<span class="text-xs text-muted">%</span>'+
+            '</div>'+
+          '</div>'
+        ).join('')+
+      '</div>'+
+      '<button class="btn btn-primary btn-sm" onclick="demoSaveForecastMultipliers()">Save Multipliers</button>'+
+
+      '<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">'+
+        '<div class="text-xs semi text-violet mb2">📚 Historical Records</div>'+
+        '<div class="text-xs text-muted mb2">Enter past attendance so forecasts get sharper over time. Each new record refines weather-and-day baselines.</div>'+
+        (historical.length > 0 ?
+          '<div style="display:grid;gap:4px;margin-bottom:10px;max-height:180px;overflow-y:auto">'+
+            historical.map((h, i) =>
+              '<div style="background:#0F172A;border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center">'+
+                '<div><span class="text-xs semi">'+h.date+'</span><span class="text-xs text-violet"> · '+h.visitors.toLocaleString()+' visitors</span>'+
+                (h.note ? '<span class="text-xs text-muted"> — '+h.note.replace(/</g,'&lt;')+'</span>' : '')+'</div>'+
+                '<button onclick="demoRemoveHistorical('+i+')" class="btn btn-ghost btn-sm" style="padding:2px 8px;color:#F87171">×</button>'+
+              '</div>'
+            ).join('')+
+          '</div>' :
+          '<div class="text-xs text-muted mb2" style="font-style:italic">No historical records yet.</div>'
+        )+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
+          '<input type="date" id="hist-date" style="padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text);font-size:12px">'+
+          '<input type="number" id="hist-visitors" placeholder="Visitors" style="width:100px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text);font-size:12px">'+
+          '<input type="text" id="hist-note" placeholder="Note (weather, event...)" style="flex:1;min-width:140px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text);font-size:12px">'+
+          '<button class="btn btn-secondary btn-sm" onclick="demoAddHistorical()">Add Record</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+
   return demoDateSelector() +
     '<h1>🎯 Attendance Forecast</h1>'+
     '<div class="subtitle">AI-powered staffing projections based on weather, events, history, and local competition</div>'+
+    customizeCard +
 
     days.map(function(day) {
       const d = DEMO_CROWD[day];
@@ -676,6 +849,67 @@ function demoRemoveFromStation(stId, day, empId) {
   demoStationManage(stId, day);
 }
 
+function demoAddStation() {
+  UI.showModal('➕ Add Station', `
+    <div class="form-group">
+      <label class="form-label">Station Name</label>
+      <input type="text" id="newst-name" class="form-input" placeholder="Pumpkin Patch">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Icon (emoji)</label>
+      <input type="text" id="newst-icon" class="form-input" placeholder="🎃" maxlength="2">
+    </div>
+    <div class="grid2">
+      <div class="form-group">
+        <label class="form-label">Open (hour)</label>
+        <input type="number" id="newst-open" class="form-input" value="9" min="6" max="20">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Close (hour)</label>
+        <input type="number" id="newst-close" class="form-input" value="17" min="6" max="22">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes (optional)</label>
+      <input type="text" id="newst-note" class="form-input" placeholder="e.g. Fall-only attraction">
+    </div>
+  `, `
+    <button class="btn btn-primary" onclick="demoSaveNewStation()">Add Station</button>
+    <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
+  `);
+}
+
+function demoSaveNewStation() {
+  const name = document.getElementById('newst-name').value.trim();
+  const icon = document.getElementById('newst-icon').value.trim() || '📍';
+  const open = parseInt(document.getElementById('newst-open').value) || 9;
+  const close = parseInt(document.getElementById('newst-close').value) || 17;
+  const note = document.getElementById('newst-note').value.trim();
+  if (!name) { UI.toast('Station name required', 'error'); return; }
+  const id = 'custom_' + Date.now();
+  DEMO_STATIONS.push({ id, name, icon, open, close, indoor:false, revPerHr:0, peak:false, note: note || 'Added by admin' });
+  // Give it a small default staff need across every day so it shows up
+  Object.keys(DEMO_NEEDS).forEach(day => { DEMO_NEEDS[day][id] = 2; });
+  Object.keys(DEMO_ASSIGNED).forEach(day => { DEMO_ASSIGNED[day][id] = []; });
+  UI.closeModal();
+  UI.toast('Station "'+name+'" added');
+  const path = window.location.hash.replace('#','') || '/admin/demo/stations';
+  Router.navigate(path);
+}
+
+function demoDeleteStation(stId) {
+  const st = DEMO_STATIONS.find(s => s.id === stId);
+  if (!st) return;
+  if (!confirm('Remove station "'+st.name+'"? This will unassign all staff from this station.')) return;
+  const idx = DEMO_STATIONS.findIndex(s => s.id === stId);
+  if (idx > -1) DEMO_STATIONS.splice(idx, 1);
+  Object.keys(DEMO_NEEDS).forEach(day => { delete DEMO_NEEDS[day][stId]; });
+  Object.keys(DEMO_ASSIGNED).forEach(day => { delete DEMO_ASSIGNED[day][stId]; });
+  UI.toast('Station removed');
+  const path = window.location.hash.replace('#','') || '/admin/demo/stations';
+  Router.navigate(path);
+}
+
 function renderDemoStationViewContent() {
   const days = getDemoSelectedDays();
   const mode = demoStationViewMode;
@@ -683,8 +917,9 @@ function renderDemoStationViewContent() {
   let h = demoDateSelector() +
     '<div class="flex justify-between items-center"><div><h1>🏗️ Station View</h1><div class="subtitle">Employees assigned per station — click a station to manage staff</div></div>'+
     '<div class="flex gap1">'+
-      '<button class="btn btn-sm '+(mode==='card'?'btn-primary':'btn-secondary')+'" onclick="demoSwitchStationMode(\'card\')">📋 Detail</button>'+
-      '<button class="btn btn-sm '+(mode==='grid'?'btn-primary':'btn-secondary')+'" onclick="demoSwitchStationMode(\'grid\')">📈 Grid</button>'+
+      '<button class="btn btn-sm btn-primary" onclick="demoAddStation()">➕ Add Station</button>'+
+      '<button class="btn btn-sm '+(mode==='card'?'btn-secondary':'btn-ghost')+'" onclick="demoSwitchStationMode(\'card\')">📋 Detail</button>'+
+      '<button class="btn btn-sm '+(mode==='grid'?'btn-secondary':'btn-ghost')+'" onclick="demoSwitchStationMode(\'grid\')">📈 Grid</button>'+
     '</div></div>';
 
   if(mode === 'grid') {
@@ -756,7 +991,10 @@ function renderDemoStationViewContent() {
             '</div></td>'+
             '<td style="white-space:nowrap">'+demoCbar(active.length, need)+' <span class="text-xs">'+active.length+'/'+need+'</span></td>'+
             '<td>'+badge+'</td>'+
-            '<td><button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="event.stopPropagation();demoStationManage(\''+st.id+'\',\''+day+'\')">✏️</button></td></tr>';
+            '<td style="white-space:nowrap">'+
+              '<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="event.stopPropagation();demoStationManage(\''+st.id+'\',\''+day+'\')">✏️</button>'+
+              '<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px;color:#F87171" onclick="event.stopPropagation();demoDeleteStation(\''+st.id+'\')" title="Delete station">🗑️</button>'+
+            '</td></tr>';
         }).join('')+
         '</tbody></table></div></div>';
     }).join('');
@@ -1529,6 +1767,32 @@ function renderDemoStormContent() {
   let h = demoDateSelector() +
     '<div class="page-header"><h1>🌧️ Storm Mode</h1>'+
     '<p class="text-muted text-sm">Rapidly downsize staff when weather or emergencies hit.</p></div>';
+
+  // ── Weather forecast card for the selected days ──
+  h += '<div class="card" style="background:linear-gradient(135deg,rgba(96,165,250,.08),rgba(96,165,250,.02));border-color:rgba(96,165,250,.3)">'+
+    '<div class="card-header"><div class="card-title">🌤️ Weather Forecast</div>'+
+      '<span class="text-xs text-muted">Indianola, IA · NWS 10-day</span></div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">'+
+    days.map(d => {
+      const c = DEMO_CROWD[d];
+      if (!c) return '';
+      const w = c.weather;
+      const precipNum = parseInt(String(w.precip).replace('%','')) || 0;
+      const isRisk = precipNum >= 40 || /storm|rain|thunder/i.test(w.condition);
+      const tempColor = w.temp >= 85 ? '#F87171' : w.temp >= 70 ? '#FBBF24' : w.temp >= 55 ? '#34D399' : '#60A5FA';
+      return '<div style="background:#0F172A;border:1px solid '+(isRisk?'rgba(248,113,113,.3)':'rgba(71,85,105,.4)')+';border-radius:8px;padding:10px;cursor:pointer" onclick="demoStormDay=\''+d+'\';demoDemoStormCuts={};refreshDemoStorm()">'+
+        '<div class="text-xs semi text-muted mb1">'+c.day+' · '+d+'</div>'+
+        '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:28px">'+w.icon+'</span>'+
+          '<div><div class="semi" style="font-size:20px;color:'+tempColor+'">'+w.temp+'°F</div>'+
+          '<div class="text-xs text-muted">'+w.condition+'</div></div></div>'+
+        '<div class="text-xs text-muted mt2" style="border-top:1px solid rgba(71,85,105,.3);padding-top:6px;margin-top:6px">'+
+          '<div>💨 Wind '+w.wind+'</div>'+
+          '<div style="color:'+(precipNum>=40?'#F87171':precipNum>=20?'#FBBF24':'#94A3B8')+'">💧 Precip '+w.precip+'</div>'+
+        '</div>'+
+        (isRisk ? '<div class="text-xs semi mt2" style="color:#F87171">⚠️ Storm risk — consider cuts</div>' : '')+
+      '</div>';
+    }).join('')+
+    '</div></div>';
 
   h += '<div class="card" style="border-color:rgba(248,113,113,.4);border-width:2px"><div class="card-header">'+
     '<div><div class="card-title">⚡ Quick Setup</div><div class="text-xs text-muted">Which day needs the cut?</div></div>'+
