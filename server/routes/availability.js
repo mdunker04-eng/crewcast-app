@@ -56,7 +56,7 @@ router.get('/', authenticate, async (req, res) => {
 router.put('/', authenticate, async (req, res) => {
   try {
     const { dates } = req.body;
-    // dates = [{ date: '2026-05-03', available: true, startTime: '09:00', endTime: '17:00', notes: '' }]
+    // dates = [{ date: '2026-05-03', available: true, startTime: '09:00', endTime: '17:00', notes: '', timeBlocks: [{start,end},...] }]
 
     if (!Array.isArray(dates)) {
       return res.status(400).json({ error: 'Expected array of dates' });
@@ -66,19 +66,21 @@ router.put('/', authenticate, async (req, res) => {
     try {
       await client.query('BEGIN');
       for (const d of dates) {
+        const timeBlocks = d.timeBlocks ? JSON.stringify(d.timeBlocks) : null;
         await client.query(`
-          INSERT INTO availability (employee_id, date, available, start_time, end_time, notes, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, NOW())
+          INSERT INTO availability (employee_id, date, available, start_time, end_time, notes, time_blocks, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
           ON CONFLICT(employee_id, date)
           DO UPDATE SET available = EXCLUDED.available, start_time = EXCLUDED.start_time,
-            end_time = EXCLUDED.end_time, notes = EXCLUDED.notes, updated_at = NOW()
+            end_time = EXCLUDED.end_time, notes = EXCLUDED.notes, time_blocks = EXCLUDED.time_blocks, updated_at = NOW()
         `, [
           req.user.id,
           d.date,
           d.available ? true : false,
           d.startTime || null,
           d.endTime || null,
-          d.notes || null
+          d.notes || null,
+          timeBlocks,
         ]);
       }
       await client.query('COMMIT');
@@ -106,7 +108,7 @@ router.get('/summary', authenticate, requireAdmin, async (req, res) => {
     // Get all active employees and their availability for this date
     const { rows: employees } = await pool.query(`
       SELECT e.id, e.first_name, e.last_name, e.phone, e.skills,
-        a.available, a.start_time, a.end_time, a.notes as avail_notes
+        a.available, a.start_time, a.end_time, a.notes as avail_notes, a.time_blocks
       FROM employees e
       LEFT JOIN availability a ON e.id = a.employee_id AND a.date = $1
       WHERE e.business_id = $2 AND e.active = true
@@ -124,11 +126,18 @@ router.get('/summary', authenticate, requireAdmin, async (req, res) => {
       available: available.length,
       unknown: unknown.length,
       unavailable: unavailable.length,
-      employees: employees.map(e => ({
-        ...e,
-        skills: JSON.parse(e.skills || '{}'),
-        status: e.available === true ? 'available' : e.available === false ? 'unavailable' : 'unknown',
-      })),
+      employees: employees.map(e => {
+        let timeBlocks = null;
+        if (e.time_blocks) {
+          try { timeBlocks = JSON.parse(e.time_blocks); } catch (err) {}
+        }
+        return {
+          ...e,
+          skills: JSON.parse(e.skills || '{}'),
+          status: e.available === true ? 'available' : e.available === false ? 'unavailable' : 'unknown',
+          timeBlocks,
+        };
+      }),
     });
   } catch (err) {
     console.error('Availability summary error:', err);

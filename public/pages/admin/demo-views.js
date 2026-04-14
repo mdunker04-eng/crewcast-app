@@ -716,7 +716,17 @@ function renderDemoCrowdPulseContent() {
           '<div class="text-xs text-muted">Based on '+d.projected.toLocaleString()+' projected visitors, Forecast recommends <strong class="text-violet">'+d.staffNeeded+' staff</strong> with emphasis on high-traffic areas like Admission, '+(day >= 'May 23' ? 'Strawberry U-Pick, ' : 'Tulip U-Pick, ')+'and Hay Cafe.</div>'+
         '</div>'+
       '</div>';
-    }).join('');
+    }).join('') +
+
+    // Storm Mode quick-launch card
+    '<div class="card" style="background:linear-gradient(135deg,rgba(248,113,113,.08),rgba(248,113,113,.02));border-color:rgba(248,113,113,.3);cursor:pointer" onclick="Router.navigate(\'/admin/demo/storm\')">'+
+      '<div class="flex justify-between items-center">'+
+        '<div><div class="semi" style="color:#F87171">🌧️ Storm Mode</div>'+
+          '<div class="text-xs text-muted">Bad weather incoming? Rapidly cut staff and notify your team in one click.</div>'+
+        '</div>'+
+        '<button class="btn btn-danger btn-sm">Open Storm Mode →</button>'+
+      '</div>'+
+    '</div>';
 }
 
 function renderDemoCrowdPulse(app) {
@@ -920,7 +930,16 @@ function renderDemoStationViewContent() {
       '<button class="btn btn-sm btn-primary" onclick="demoAddStation()">➕ Add Station</button>'+
       '<button class="btn btn-sm '+(mode==='card'?'btn-secondary':'btn-ghost')+'" onclick="demoSwitchStationMode(\'card\')">📋 Detail</button>'+
       '<button class="btn btn-sm '+(mode==='grid'?'btn-secondary':'btn-ghost')+'" onclick="demoSwitchStationMode(\'grid\')">📈 Grid</button>'+
-    '</div></div>';
+    '</div></div>'+
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;padding:8px 12px;background:rgba(30,41,59,.5);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;align-items:center">'+
+      '<span class="text-xs semi text-muted">Legend:</span>'+
+      '<span class="text-xs" style="display:flex;align-items:center;gap:4px"><span class="tag" style="background:rgba(52,211,153,.12);color:#34D399;font-size:10px;padding:2px 6px">Name ✓</span> Confirmed</span>'+
+      '<span class="text-xs" style="display:flex;align-items:center;gap:4px"><span class="tag" style="background:rgba(251,191,36,.12);color:#FBBF24;font-size:10px;padding:2px 6px">Name ⏳</span> Pending</span>'+
+      '<span class="text-xs" style="display:flex;align-items:center;gap:4px"><span class="tag" style="background:rgba(239,68,68,.12);color:#F87171;font-size:10px;padding:2px 6px">Name ✗</span> Declined</span>'+
+      '<span class="text-xs" style="display:flex;align-items:center;gap:4px"><span class="badge badge-green" style="font-size:9px">✓ Full</span> Fully staffed</span>'+
+      '<span class="text-xs" style="display:flex;align-items:center;gap:4px"><span class="badge badge-amber" style="font-size:9px">⏳</span> Waiting on responses</span>'+
+      '<span class="text-xs" style="display:flex;align-items:center;gap:4px"><span class="badge badge-red" style="font-size:9px">⚠ Gap</span> Needs coverage</span>'+
+    '</div>';
 
   if(mode === 'grid') {
     // Coverage grid view

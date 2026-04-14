@@ -114,6 +114,10 @@ function renderSettingsSections() {
         ${settingsNumber('breakLengthMinutes', 'Break length (minutes)', 10, 60, 30)}
       </div>
       ${settingsToggle('allowDoubleShifts', 'Employees can work two stations in one day')}
+      ${settingsToggle('allowSplitShifts', 'Allow split availability (e.g., morning + evening blocks)')}
+      <div id="split-shift-note" style="${s.allowSplitShifts ? '' : 'display:none'}">
+        <p class="text-xs text-muted" style="padding:0 0 8px 0">When enabled, employees can indicate multiple time blocks per day (e.g., 8–11am and 2–5pm). You decide whether to schedule them for split shifts.</p>
+      </div>
       ${settingsNumber('maxConsecutiveDays', 'Max consecutive workdays', 1, 14, 6)}
     </div>
 
@@ -222,6 +226,7 @@ function renderSettingsSections() {
   wireToggleVisibility('useShiftLeads', 'shift-lead-opts');
   wireToggleVisibility('enforceOvertime', 'overtime-opts');
   wireToggleVisibility('requireBreaks', 'break-opts');
+  wireToggleVisibility('allowSplitShifts', 'split-shift-note');
   wireToggleVisibility('weatherAffectsStaffing', 'weather-opts');
 }
 

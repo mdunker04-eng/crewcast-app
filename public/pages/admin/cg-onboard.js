@@ -1,388 +1,241 @@
 // ═══════════════════════════════════════════════════════
-// CrewCast — Center Grove Orchard Onboarding
-// Pre-loads CG stations + Spring 2026 schedule dates
-// Uses real API to create actual stations & schedules
+// CrewCast — Season Manager
+// Multi-season support: define seasons with date ranges,
+// active stations, and staff profiles.
+// Uses real API + localStorage for season config.
 // ═══════════════════════════════════════════════════════
 
-// Format report time from open time minus early minutes
-function cgFmtTime(openTime, earlyMin) {
-  const [h, m] = openTime.split(':').map(Number);
-  const total = h * 60 + m - (earlyMin || 0);
-  const rh = Math.floor(Math.max(0, total) / 60);
-  const rm = Math.max(0, total) % 60;
-  const ampm = rh >= 12 ? 'PM' : 'AM';
-  const hr = rh === 0 ? 12 : rh > 12 ? rh - 12 : rh;
-  return hr + (rm > 0 ? ':' + String(rm).padStart(2, '0') : '') + ' ' + ampm;
+// ── Persisted seasons (localStorage) ──
+function getSeasons() {
+  try { return JSON.parse(localStorage.getItem('cc_seasons') || '[]'); } catch { return []; }
+}
+function saveSeasons(seasons) {
+  localStorage.setItem('cc_seasons', JSON.stringify(seasons));
 }
 
-const CG_STATIONS = [
-  { name: 'Apple Barn & Country Store', icon: '🍎', category: 'Retail', minStaff: 3, maxStaff: 6, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
-  { name: 'Bakery', icon: '🧁', category: 'Food & Beverage', minStaff: 2, maxStaff: 4, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
-  { name: 'Cider Bar', icon: '🍺', category: 'Food & Beverage', minStaff: 2, maxStaff: 4, openTime: '10:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
-  { name: 'Wine & Spirits Tasting', icon: '🍷', category: 'Food & Beverage', minStaff: 2, maxStaff: 3, openTime: '10:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
-  { name: 'Caramel Apple Kitchen', icon: '🍏', category: 'Food & Beverage', minStaff: 2, maxStaff: 4, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
-  { name: 'Food Court', icon: '🍔', category: 'Food & Beverage', minStaff: 4, maxStaff: 8, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
-  { name: 'Corn Maze', icon: '🌽', category: 'Attractions', minStaff: 2, maxStaff: 4, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
-  { name: 'Petting Zoo', icon: '🐐', category: 'Attractions', minStaff: 2, maxStaff: 3, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
-  { name: 'Cow Train', icon: '🚂', category: 'Attractions', minStaff: 1, maxStaff: 2, openTime: '10:00', closeTime: '16:00', arriveEarlyMinutes: 15 },
-  { name: 'Jumping Pillow', icon: '🤸', category: 'Attractions', minStaff: 1, maxStaff: 2, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
-  { name: 'Pedal Karts', icon: '🏎️', category: 'Attractions', minStaff: 1, maxStaff: 2, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
-  { name: 'Barnyard Play Area', icon: '🎪', category: 'Attractions', minStaff: 1, maxStaff: 2, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 15 },
-  { name: 'U-Pick Apples', icon: '🍎', category: 'U-Pick', minStaff: 3, maxStaff: 6, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
-  { name: 'U-Pick Pumpkins', icon: '🎃', category: 'U-Pick', minStaff: 2, maxStaff: 5, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
-  { name: 'Hayrides', icon: '🚜', category: 'Attractions', minStaff: 2, maxStaff: 3, openTime: '10:00', closeTime: '16:00', arriveEarlyMinutes: 15 },
-  { name: 'Lemonade Stand', icon: '🍋', category: 'Food & Beverage', minStaff: 1, maxStaff: 2, openTime: '10:00', closeTime: '16:00', arriveEarlyMinutes: 15 },
-  { name: 'Strawberry U-Pick', icon: '🍓', category: 'U-Pick', minStaff: 2, maxStaff: 4, openTime: '09:00', closeTime: '17:00', arriveEarlyMinutes: 30 },
-  { name: 'Parking & Entrance', icon: '🅿️', category: 'Operations', minStaff: 3, maxStaff: 6, openTime: '08:00', closeTime: '18:00', arriveEarlyMinutes: 30 },
-];
+// ── Default CG Spring 2026 seed (auto-created on first visit) ──
+function seedDefaultSeason() {
+  const seasons = getSeasons();
+  if (seasons.length > 0) return; // already seeded
+  seasons.push({
+    id: 'spring-2026',
+    name: 'Spring on the Farm 2026',
+    icon: '🌷',
+    startDate: '2026-05-01',
+    endDate: '2026-05-31',
+    status: 'active',
+    notes: 'Tulips, baby animals, strawberry U-pick. May 2026 season.',
+    stationOverrides: {},  // station_id → { active: bool, staffMult: number }
+    createdAt: new Date().toISOString(),
+  });
+  saveSeasons(seasons);
+}
 
-const CG_SPRING_2026 = [
-  { label: 'Opening Weekend — May 2–3', start: '2026-05-02', end: '2026-05-03' },
-  { label: "Mother's Day Weekend — May 9–10", start: '2026-05-09', end: '2026-05-10' },
-  { label: 'Mid-May Weekend — May 16–17', start: '2026-05-16', end: '2026-05-17' },
-  { label: 'Strawberry + Memorial Day — May 23–25', start: '2026-05-23', end: '2026-05-25' },
-  { label: 'Season Finale — May 30–31', start: '2026-05-30', end: '2026-05-31' },
-];
-
+// ── Render ──
 async function renderCGOnboard(app) {
-  app.innerHTML = UI.adminShell('cg-onboard', `
-    <div class="page">
-      <div id="cg-onboard-content">${UI.loading()}</div>
-    </div>
-  `);
-  const main = document.getElementById('cg-onboard-content');
+  seedDefaultSeason();
+  const seasons = getSeasons();
 
+  let existingStations = [], existingSchedules = [];
   try {
-    // Check what already exists
-    const [existingStations, existingSchedules, settings] = await Promise.all([
+    [existingStations, existingSchedules] = await Promise.all([
       API.getStations(),
       API.getSchedules(),
-      API.getSettings().catch(() => ({})),
     ]);
+  } catch (e) { /* offline or no auth */ }
 
-    const existingNames = new Set(existingStations.map(s => s.name.toLowerCase()));
-    const existingScheduleLabels = new Set(existingSchedules.map(s => (s.title || '').toLowerCase()));
+  const activeSeason = seasons.find(s => s.status === 'active');
 
-    // Build station checklist — pre-check stations not yet created
-    const stationChecks = CG_STATIONS.map(s => ({
-      ...s,
-      exists: existingNames.has(s.name.toLowerCase()),
-      checked: !existingNames.has(s.name.toLowerCase()),
-    }));
-
-    // Build schedule checklist — pre-check weekends not yet created
-    const schedChecks = CG_SPRING_2026.map(w => ({
-      ...w,
-      exists: existingScheduleLabels.has(w.label.toLowerCase()),
-      checked: !existingScheduleLabels.has(w.label.toLowerCase()),
-    }));
-
-    const allStationsExist = stationChecks.every(s => s.exists);
-    const allSchedulesExist = schedChecks.every(s => s.exists);
-
-    main.innerHTML = `
-      <!-- Header -->
-      <div style="text-align:center;padding:8px 0 24px">
-        <h1 style="font-size:24px;margin-bottom:6px">🌾 Center Grove Orchard — Spring 2026</h1>
-        <p class="text-muted" style="font-size:14px">Set up stations and schedules for this spring's season.</p>
-      </div>
-
-      <!-- Settings Reminder -->
-      ${!settings.businessName ? `
-      <div class="card" style="margin-bottom:16px;border-left:3px solid var(--amber)">
-        <div class="flex items-center gap-2">
-          <span>⚙️</span>
-          <div style="flex:1">
-            <div class="semi text-sm">Complete Settings First</div>
-            <div class="text-xs text-muted">Set your business name, hours, and scheduling rules.</div>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="Router.navigate('/admin/settings')">Go to Settings →</button>
+  app.innerHTML = UI.adminShell('cg-onboard', `
+    <div class="page">
+      <div class="flex justify-between items-center" style="margin-bottom:20px">
+        <div>
+          <h1>📅 Season Manager</h1>
+          <p class="subtitle">Define seasons with different dates, stations, and staffing levels</p>
         </div>
+        <button class="btn btn-primary btn-sm" onclick="seasonShowCreate()">+ New Season</button>
       </div>
+
+      ${seasons.length === 0 ? `
+        <div class="card" style="text-align:center;padding:40px">
+          <div style="font-size:48px;margin-bottom:12px">📅</div>
+          <div class="semi" style="font-size:16px;margin-bottom:6px">No seasons defined yet</div>
+          <div class="text-xs text-muted mb-3">Create your first season to start planning schedules.</div>
+          <button class="btn btn-primary" onclick="seasonShowCreate()">+ Create Season</button>
+        </div>
+      ` : `
+        <div style="display:grid;gap:12px">
+          ${seasons.map((s, idx) => {
+            const isActive = s.status === 'active';
+            const schedCount = existingSchedules.filter(sc => {
+              // Match schedules whose dates fall within this season
+              return sc.start_date >= s.startDate && sc.start_date <= s.endDate;
+            }).length;
+            const borderColor = isActive ? 'rgba(52,211,153,.3)' : 'rgba(71,85,105,.3)';
+            const bgGrad = isActive ? 'linear-gradient(135deg,rgba(52,211,153,.06),rgba(52,211,153,.01))' : 'none';
+            return `
+              <div class="card" style="border-color:${borderColor};background:${bgGrad}">
+                <div class="flex justify-between items-center mb-2">
+                  <div class="flex items-center gap-2">
+                    <span style="font-size:28px">${s.icon || '📅'}</span>
+                    <div>
+                      <div class="semi" style="font-size:16px">${s.name}</div>
+                      <div class="text-xs text-muted">${UI.formatDate(s.startDate)} — ${UI.formatDate(s.endDate)}</div>
+                    </div>
+                  </div>
+                  <div class="flex gap-1 items-center">
+                    <span class="badge ${isActive ? 'badge-green' : 'badge-amber'}">${isActive ? 'Active' : s.status}</span>
+                  </div>
+                </div>
+                ${s.notes ? `<div class="text-xs text-muted mb-2">${s.notes}</div>` : ''}
+                <div class="flex gap-2 flex-wrap" style="margin-top:8px">
+                  <div class="stat-card" style="flex:1;min-width:80px"><div class="stat-label">Stations</div><div class="stat-value" style="font-size:16px">${existingStations.length}</div></div>
+                  <div class="stat-card" style="flex:1;min-width:80px"><div class="stat-label">Schedules</div><div class="stat-value" style="font-size:16px">${schedCount}</div></div>
+                  <div class="stat-card" style="flex:1;min-width:80px"><div class="stat-label">Duration</div><div class="stat-value" style="font-size:16px">${seasonDuration(s)} days</div></div>
+                </div>
+                <div class="flex gap-1 mt-2" style="margin-top:10px;flex-wrap:wrap">
+                  <button class="btn btn-secondary btn-sm" onclick="seasonEdit(${idx})">✏️ Edit</button>
+                  ${!isActive ? `<button class="btn btn-sm" style="background:rgba(52,211,153,.1);color:#34D399;border:1px solid rgba(52,211,153,.3)" onclick="seasonSetActive(${idx})">Set Active</button>` : ''}
+                  <button class="btn btn-sm" onclick="seasonDuplicate(${idx})" style="background:rgba(167,139,250,.1);color:#A78BFA;border:1px solid rgba(167,139,250,.3)">📋 Duplicate</button>
+                  <button class="btn btn-ghost btn-sm" style="color:#F87171" onclick="seasonDelete(${idx})">🗑️</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+
+      ${existingStations.length > 0 ? `
+        <div class="card" style="margin-top:16px;border-left:3px solid var(--purple-light)">
+          <div class="semi" style="font-size:14px;margin-bottom:4px">💡 Multi-Season Tip</div>
+          <div class="text-xs text-muted">Many venues have different seasons with different stations and staff needs. For example, an orchard might run Spring (tulips + baby animals), Summer (strawberry + blueberry picking), and Fall (apples + corn maze + pumpkin patch) — each with different opening hours, station counts, and crew sizes. Create a season for each, then build schedules within it.</div>
+        </div>
       ` : ''}
 
-      <!-- Step 1: Stations -->
-      <div class="card" style="margin-bottom:16px">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <div class="semi" style="font-size:16px">📍 Step 1 — Stations</div>
-            <div class="text-xs text-muted mt-1">Select the areas you'll staff this spring. Uncheck any you don't need.</div>
-          </div>
-          ${allStationsExist ? '<span class="badge badge-green">All Created</span>' : `
-          <div class="flex gap-2">
-            <button class="btn btn-ghost btn-sm" onclick="cgToggleAll('station', true)">All</button>
-            <button class="btn btn-ghost btn-sm" onclick="cgToggleAll('station', false)">None</button>
-          </div>`}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px" id="cg-station-grid">
-          ${stationChecks.map((s, i) => `
-            <label class="card" style="padding:10px 12px;cursor:${s.exists ? 'default' : 'pointer'};display:flex;align-items:center;gap:10px;border:1px solid var(--border);opacity:${s.exists ? '.6' : '1'}">
-              <input type="checkbox" class="cg-station-check" data-idx="${i}" ${s.checked ? 'checked' : ''} ${s.exists ? 'disabled' : ''}>
-              <span style="font-size:22px">${s.icon}</span>
-              <div style="flex:1;min-width:0">
-                <div class="semi text-sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
-                <div class="text-xs text-muted">${s.category} · ${s.minStaff}–${s.maxStaff} staff${s.openTime ? ` · Report ${cgFmtTime(s.openTime, s.arriveEarlyMinutes)}` : ''}</div>
-              </div>
-              ${s.exists ? '<span class="badge badge-green" style="font-size:10px">Exists</span>' : ''}
-            </label>
-          `).join('')}
-        </div>
-        ${!allStationsExist ? `
-        <div style="margin-top:12px;text-align:right">
-          <button class="btn btn-primary" id="cg-create-stations-btn" onclick="cgCreateStations()">Create Selected Stations</button>
-        </div>` : ''}
+      <div class="flex gap-2 justify-center" style="flex-wrap:wrap;margin:20px 0">
+        <button class="btn btn-secondary" onclick="Router.navigate('/admin/schedules')">📅 Season Calendar</button>
+        <button class="btn btn-secondary" onclick="Router.navigate('/admin/stations')">📍 Stations</button>
+        <button class="btn btn-secondary" onclick="Router.navigate('/admin/employees')">👥 Employees</button>
       </div>
-
-      <!-- Step 2: Schedules -->
-      <div class="card" style="margin-bottom:16px">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <div class="semi" style="font-size:16px">📅 Step 2 — Spring Schedules</div>
-            <div class="text-xs text-muted mt-1">Each weekend becomes a schedule. You'll assign staff after creating them.</div>
-          </div>
-          ${allSchedulesExist ? '<span class="badge badge-green">All Created</span>' : `
-          <div class="flex gap-2">
-            <button class="btn btn-ghost btn-sm" onclick="cgToggleAll('sched', true)">All</button>
-            <button class="btn btn-ghost btn-sm" onclick="cgToggleAll('sched', false)">None</button>
-          </div>`}
-        </div>
-        <div style="display:grid;gap:8px" id="cg-sched-grid">
-          ${schedChecks.map((w, i) => `
-            <label class="card" style="padding:12px 14px;cursor:${w.exists ? 'default' : 'pointer'};display:flex;align-items:center;gap:12px;border:1px solid var(--border);opacity:${w.exists ? '.6' : '1'}">
-              <input type="checkbox" class="cg-sched-check" data-idx="${i}" ${w.checked ? 'checked' : ''} ${w.exists ? 'disabled' : ''}>
-              <div style="flex:1">
-                <div class="semi text-sm">${w.label}</div>
-                <div class="text-xs text-muted">${w.start} → ${w.end}</div>
-              </div>
-              ${w.exists ? '<span class="badge badge-green" style="font-size:10px">Exists</span>' : ''}
-            </label>
-          `).join('')}
-        </div>
-        ${!allSchedulesExist ? `
-        <div style="margin-top:12px;text-align:right">
-          <button class="btn btn-primary" id="cg-create-scheds-btn" onclick="cgCreateSchedules()">Create Selected Schedules</button>
-        </div>` : ''}
-      </div>
-
-      <!-- Step 3: Load Test Staff -->
-      <div class="card" style="margin-bottom:16px;border-left:3px solid var(--purple-light)">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <div class="semi" style="font-size:16px">👥 Step 3 — Test Staff</div>
-            <div class="text-xs text-muted mt-1">Load 60 fake employees with names, phones, and station skills for testing. You can remove them later.</div>
-          </div>
-          <div id="cg-staff-status"></div>
-        </div>
-        <div class="flex gap-2">
-          <button class="btn btn-primary" id="cg-load-staff-btn" onclick="cgLoadTestStaff()">Load 60 Test Employees</button>
-          <button class="btn btn-ghost btn-sm" style="color:#F87171" id="cg-clear-staff-btn" onclick="cgClearTestStaff()">🗑️ Clear Test Staff</button>
-        </div>
-        <div id="cg-staff-progress" style="margin-top:8px;display:none">
-          <div style="background:#1E293B;border-radius:6px;height:6px;overflow:hidden"><div id="cg-staff-bar" style="height:100%;background:var(--purple-light);width:0%;transition:width .3s"></div></div>
-          <div id="cg-staff-msg" class="text-xs text-muted" style="margin-top:4px"></div>
-        </div>
-      </div>
-
-      <!-- Step 4: Next Steps -->
-      <div class="card" style="background:var(--purple-bg);border-color:rgba(167,139,250,.25);margin-bottom:16px">
-        <div class="semi" style="font-size:16px;margin-bottom:8px;color:var(--purple-light)">🚀 Next Steps</div>
-        <div style="display:grid;gap:6px;font-size:13px;color:var(--text-muted)">
-          <div>1. <strong>Add employees</strong> on the <a href="#" onclick="Router.navigate('/admin/employees');return false" style="color:var(--purple-light)">Employees page</a> (or use test staff above)</div>
-          <div>2. <strong>Assign staff to stations</strong> — set which areas each person can work</div>
-          <div>3. <strong>Open a schedule</strong> and use <strong>Auto-Fill</strong> to assign shifts</div>
-          <div>4. <strong>Publish</strong> and share the app link with your team</div>
-        </div>
-      </div>
-
-      <!-- Quick Links -->
-      <div class="flex gap-2 justify-center" style="flex-wrap:wrap;margin-bottom:20px">
-        <button class="btn btn-secondary" onclick="Router.navigate('/admin/employees')">👥 Add Employees</button>
-        <button class="btn btn-secondary" onclick="Router.navigate('/admin/schedules')">📅 View Schedules</button>
-        <button class="btn btn-secondary" onclick="Router.navigate('/admin')">📊 Dashboard</button>
-      </div>
-    `;
-  } catch (err) {
-    main.innerHTML = `<div class="card"><p class="text-red">Error: ${err.message}</p></div>`;
-  }
+    </div>
+  `);
 }
 
-function cgToggleAll(type, checked) {
-  const cls = type === 'station' ? '.cg-station-check' : '.cg-sched-check';
-  document.querySelectorAll(cls).forEach(cb => {
-    if (!cb.disabled) cb.checked = checked;
-  });
+function seasonDuration(s) {
+  const start = new Date(s.startDate);
+  const end = new Date(s.endDate);
+  return Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
 }
 
-async function cgCreateStations() {
-  const btn = document.getElementById('cg-create-stations-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+// ── Create / Edit modal ──
+function seasonShowCreate(editIdx) {
+  const isEdit = editIdx !== undefined;
+  const seasons = getSeasons();
+  const s = isEdit ? seasons[editIdx] : {};
 
-  const checked = document.querySelectorAll('.cg-station-check:checked:not(:disabled)');
-  const stations = [];
-  checked.forEach(cb => {
-    const s = CG_STATIONS[parseInt(cb.dataset.idx)];
-    stations.push({
-      name: s.name,
-      icon: s.icon,
-      category: s.category,
-      minStaff: s.minStaff,
-      maxStaff: s.maxStaff,
-      openTime: s.openTime || '09:00',
-      closeTime: s.closeTime || '17:00',
-      arriveEarlyMinutes: s.arriveEarlyMinutes || 15,
-      active: true,
-    });
-  });
-
-  if (stations.length === 0) {
-    UI.toast('No stations selected', 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Create Selected Stations'; }
-    return;
-  }
-
-  try {
-    const result = await API.bulkAddStations(stations);
-    UI.toast(`Created ${result.added} station${result.added !== 1 ? 's' : ''}!${result.skipped ? ` (${result.skipped} already existed)` : ''}`);
-    // Re-render to update state
-    renderCGOnboard(document.getElementById('app'));
-  } catch (err) {
-    UI.toast('Error creating stations: ' + err.message, 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Create Selected Stations'; }
-  }
+  UI.showModal(isEdit ? 'Edit Season' : 'New Season', `
+    <div class="form-group">
+      <label class="form-label">Season Name</label>
+      <input type="text" id="season-name" class="form-input" value="${s.name || ''}" placeholder="e.g. Fall Festival 2026">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Icon (emoji)</label>
+      <input type="text" id="season-icon" class="form-input" value="${s.icon || ''}" placeholder="🎃" maxlength="2" style="width:60px">
+    </div>
+    <div class="grid2">
+      <div class="form-group">
+        <label class="form-label">Start Date</label>
+        <input type="date" id="season-start" class="form-input" value="${s.startDate || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Date</label>
+        <input type="date" id="season-end" class="form-input" value="${s.endDate || ''}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select id="season-status" class="form-input">
+        <option value="planning" ${s.status === 'planning' ? 'selected' : ''}>Planning</option>
+        <option value="active" ${s.status === 'active' ? 'selected' : ''}>Active</option>
+        <option value="completed" ${s.status === 'completed' ? 'selected' : ''}>Completed</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <input type="text" id="season-notes" class="form-input" value="${(s.notes || '').replace(/"/g, '&quot;')}" placeholder="What's unique about this season?">
+    </div>
+  `, `
+    <button class="btn btn-primary" onclick="seasonSave(${isEdit ? editIdx : -1})">${isEdit ? 'Save' : 'Create'}</button>
+    <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
+  `);
 }
 
-async function cgCreateSchedules() {
-  const btn = document.getElementById('cg-create-scheds-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+function seasonSave(editIdx) {
+  const name = document.getElementById('season-name').value.trim();
+  const icon = document.getElementById('season-icon').value.trim() || '📅';
+  const startDate = document.getElementById('season-start').value;
+  const endDate = document.getElementById('season-end').value;
+  const status = document.getElementById('season-status').value;
+  const notes = document.getElementById('season-notes').value.trim();
 
-  const checked = document.querySelectorAll('.cg-sched-check:checked:not(:disabled)');
-  const weekends = [];
-  checked.forEach(cb => {
-    weekends.push(CG_SPRING_2026[parseInt(cb.dataset.idx)]);
-  });
+  if (!name) { UI.toast('Season name required', 'error'); return; }
+  if (!startDate || !endDate) { UI.toast('Start and end dates required', 'error'); return; }
+  if (endDate < startDate) { UI.toast('End date must be after start date', 'error'); return; }
 
-  if (weekends.length === 0) {
-    UI.toast('No schedules selected', 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Create Selected Schedules'; }
-    return;
+  const seasons = getSeasons();
+  const obj = {
+    id: editIdx >= 0 ? seasons[editIdx].id : name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now(),
+    name, icon, startDate, endDate, status, notes,
+    stationOverrides: editIdx >= 0 ? (seasons[editIdx].stationOverrides || {}) : {},
+    createdAt: editIdx >= 0 ? seasons[editIdx].createdAt : new Date().toISOString(),
+  };
+
+  // If setting to active, deactivate others
+  if (status === 'active') {
+    seasons.forEach(s => { if (s.status === 'active') s.status = 'planning'; });
   }
 
-  let created = 0;
-  try {
-    for (const w of weekends) {
-      await API.createSchedule({
-        title: w.label,
-        start_date: w.start,
-        end_date: w.end,
-        status: 'draft',
-      });
-      created++;
-    }
-    UI.toast(`Created ${created} schedule${created !== 1 ? 's' : ''}!`);
-    renderCGOnboard(document.getElementById('app'));
-  } catch (err) {
-    UI.toast(`Created ${created}, then error: ${err.message}`, 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Create Selected Schedules'; }
+  if (editIdx >= 0) {
+    seasons[editIdx] = obj;
+  } else {
+    seasons.push(obj);
   }
+  saveSeasons(seasons);
+  UI.closeModal();
+  UI.toast(editIdx >= 0 ? 'Season updated' : 'Season created!');
+  renderCGOnboard(document.getElementById('app'));
 }
 
-// ── Test Staff: 60 fake employees ──
-const CG_TEST_FIRST = ['Emma','Jake','Riley','Morgan','Taylor','Jordan','Casey','Avery','Harper','Logan','Bailey','Quinn','Peyton','Cameron','Skyler','Dakota','Reagan','Finley','Reese','Sage','Rowan','Blake','Alex','Sam','Drew','Jamie','Hayden','Parker','Sawyer','Emery','Jesse','Kendall','Lane','Marley','Oakley','Phoenix','River','Spencer','Tatum','Val','Wren','Addison','Blair','Charlie','Devon','Ellis','Frankie','Gray','Hollis','Aria','Brody','Caleb','Dani','Eli','Faith','Grant','Holly','Ivan','Jade','Kai'];
-const CG_TEST_LAST = ['Johnson','Martinez','Walker','Chen','Smith','Lee','Brown','Davis','Wilson','Moore','Taylor','Anderson','Thomas','Jackson','White','Harris','Martin','Garcia','Thompson','Robinson','Clark','Lewis','Young','Allen','King','Wright','Hill','Green','Adams','Baker'];
+function seasonEdit(idx) { seasonShowCreate(idx); }
 
-async function cgLoadTestStaff() {
-  const btn = document.getElementById('cg-load-staff-btn');
-  const prog = document.getElementById('cg-staff-progress');
-  const bar = document.getElementById('cg-staff-bar');
-  const msg = document.getElementById('cg-staff-msg');
-  if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
-  if (prog) prog.style.display = 'block';
-
-  // Build 60 employees
-  const employees = [];
-  for (let i = 0; i < 60; i++) {
-    employees.push({
-      firstName: CG_TEST_FIRST[i % CG_TEST_FIRST.length],
-      lastName: CG_TEST_LAST[i % CG_TEST_LAST.length],
-      phone: '(515) 555-' + String(2000 + i).padStart(4, '0'),
-      role: 'employee',
-    });
-  }
-
-  try {
-    // Step 1: Bulk import employees in batches of 10 (avoids server timeouts)
-    if (msg) msg.textContent = 'Creating 60 employees...';
-    if (bar) bar.style.width = '10%';
-    const result = { added: 0, skipped: 0 };
-    const BATCH = 10;
-    for (let start = 0; start < employees.length; start += BATCH) {
-      const batch = employees.slice(start, start + BATCH);
-      const r = await API.bulkImport(batch);
-      result.added += r.added;
-      result.skipped += r.skipped;
-      if (bar) bar.style.width = (10 + (start / employees.length) * 25) + '%';
-    }
-    if (msg) msg.textContent = `Created ${result.added} employees (${result.skipped} already existed)`;
-    if (bar) bar.style.width = '40%';
-
-    // Step 2: Assign each employee to 2-4 random stations
-    const allStations = await API.getStations();
-    if (allStations.length === 0) {
-      UI.toast('Create stations first (Step 1), then load test staff.', 'error');
-      if (btn) { btn.disabled = false; btn.textContent = 'Load 60 Test Employees'; }
-      return;
-    }
-
-    const allEmployees = await API.getEmployees();
-    // Only assign stations to test employees (phone starts with (515) 555-)
-    const testEmps = allEmployees.filter(e => e.phone && e.phone.startsWith('(515) 555-'));
-    if (msg) msg.textContent = `Assigning station skills to ${testEmps.length} employees...`;
-    if (bar) bar.style.width = '50%';
-
-    for (let i = 0; i < testEmps.length; i++) {
-      const emp = testEmps[i];
-      // Each employee gets 2-5 random stations
-      const count = 2 + Math.floor(Math.random() * 4);
-      const shuffled = [...allStations].sort(() => Math.random() - 0.5);
-      const stationIds = shuffled.slice(0, count).map(s => s.id);
-      try {
-        await API.updateEmployeeStations(emp.id, stationIds);
-      } catch (e) { /* skip errors */ }
-      if (bar) bar.style.width = (50 + (i / testEmps.length) * 45) + '%';
-      if (msg && i % 10 === 0) msg.textContent = `Assigning stations... ${i + 1}/${testEmps.length}`;
-    }
-
-    if (bar) bar.style.width = '100%';
-    if (msg) msg.textContent = `Done! ${result.added} employees created, stations assigned.`;
-    UI.toast(`Loaded ${result.added} test employees with station skills!`);
-
-    setTimeout(() => renderCGOnboard(document.getElementById('app')), 1500);
-  } catch (err) {
-    UI.toast('Error: ' + err.message, 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Load 60 Test Employees'; }
-  }
+function seasonSetActive(idx) {
+  const seasons = getSeasons();
+  seasons.forEach(s => { if (s.status === 'active') s.status = 'planning'; });
+  seasons[idx].status = 'active';
+  saveSeasons(seasons);
+  UI.toast(seasons[idx].name + ' is now the active season');
+  renderCGOnboard(document.getElementById('app'));
 }
 
-async function cgClearTestStaff() {
-  if (!confirm('Remove all test employees (phone starting with (515) 555-)? This cannot be undone.')) return;
+function seasonDuplicate(idx) {
+  const seasons = getSeasons();
+  const orig = seasons[idx];
+  const copy = JSON.parse(JSON.stringify(orig));
+  copy.id = orig.id + '-copy-' + Date.now();
+  copy.name = orig.name + ' (Copy)';
+  copy.status = 'planning';
+  copy.createdAt = new Date().toISOString();
+  seasons.push(copy);
+  saveSeasons(seasons);
+  UI.toast('Season duplicated — edit the copy to adjust dates and settings');
+  renderCGOnboard(document.getElementById('app'));
+}
 
-  const btn = document.getElementById('cg-clear-staff-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Clearing...'; }
-
-  try {
-    const allEmployees = await API.getEmployees();
-    const testEmps = allEmployees.filter(e => e.phone && e.phone.startsWith('(515) 555-'));
-    let removed = 0;
-    for (const emp of testEmps) {
-      try {
-        await API.deleteEmployee(emp.id);
-        removed++;
-      } catch (e) { /* skip */ }
-    }
-    UI.toast(`Removed ${removed} test employees`);
-    renderCGOnboard(document.getElementById('app'));
-  } catch (err) {
-    UI.toast('Error: ' + err.message, 'error');
-    if (btn) { btn.disabled = false; btn.textContent = '🗑️ Clear Test Staff'; }
-  }
+function seasonDelete(idx) {
+  const seasons = getSeasons();
+  if (!confirm('Delete season "' + seasons[idx].name + '"? This only removes the season definition — existing schedules and stations are not affected.')) return;
+  seasons.splice(idx, 1);
+  saveSeasons(seasons);
+  UI.toast('Season removed');
+  renderCGOnboard(document.getElementById('app'));
 }

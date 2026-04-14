@@ -332,6 +332,7 @@ router.get('/features', authenticate, async (req, res) => {
       employeeRankStations: s.employeeRankStations !== false,
       employeeSetAvailability: s.employeeSetAvailability !== false,
       employeeRequestDaysOff: s.employeeRequestDaysOff || false,
+      allowSplitShifts: s.allowSplitShifts || false,
     });
   } catch (err) {
     console.error('Get features error:', err);

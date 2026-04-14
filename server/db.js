@@ -334,6 +334,39 @@ async function initDB() {
     } catch (migErr) {
       console.log('Staff defaults migration skipped:', migErr.message);
     }
+
+    // Migration: add time_blocks column to availability for split-shift support
+    await client.query(`
+      ALTER TABLE availability ADD COLUMN IF NOT EXISTS time_blocks TEXT DEFAULT NULL
+    `).catch(() => {});
+
+    // Backfill: ensure every active employee has a 3-star rating in every category
+    try {
+      const { rows: businesses } = await client.query('SELECT id FROM businesses');
+      for (const biz of businesses) {
+        const { rows: cats } = await client.query(
+          'SELECT id FROM station_categories WHERE business_id = $1', [biz.id]
+        );
+        const { rows: emps } = await client.query(
+          'SELECT id FROM employees WHERE business_id = $1 AND active = true', [biz.id]
+        );
+        if (cats.length > 0 && emps.length > 0) {
+          let inserted = 0;
+          for (const emp of emps) {
+            for (const cat of cats) {
+              const res = await client.query(
+                'INSERT INTO employee_category_ratings (employee_id, category_id, rating) VALUES ($1, $2, 3) ON CONFLICT (employee_id, category_id) DO NOTHING',
+                [emp.id, cat.id]
+              );
+              inserted += res.rowCount;
+            }
+          }
+          if (inserted > 0) console.log(`Backfilled ${inserted} rating rows (3-star default) for business ${biz.id}`);
+        }
+      }
+    } catch (ratingErr) {
+      console.log('Rating backfill skipped:', ratingErr.message);
+    }
   } finally {
     client.release();
   }

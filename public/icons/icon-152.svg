@@ -1,5 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="152" height="152" viewBox="0 0 152 152">
-  <rect width="152" height="152" rx="22.8" fill="#7C3AED"/>
-  <text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle"
-    font-family="system-ui,sans-serif" font-weight="800" font-size="53.199999999999996" fill="white">CC</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="152" height="152" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#2DD4BF"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="url(#bg)"/>
+  <rect x="44" y="52" width="104" height="92" rx="12" fill="none" stroke="white" stroke-width="5" opacity=".9"/>
+  <line x1="44" y1="76" x2="148" y2="76" stroke="white" stroke-width="4" opacity=".6"/>
+  <line x1="78" y1="42" x2="78" y2="62" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <line x1="114" y1="42" x2="114" y2="62" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <path d="M72 108L88 124L120 92" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

@@ -35,7 +35,10 @@ async function renderAdminSchedules(app) {
       <div class="card" onclick="Router.navigate('/admin/schedule/${s.id}')" style="cursor:pointer">
         <div class="flex justify-between items-center mb-2">
           <div class="semi">${s.name}</div>
-          ${UI.statusBadge(s.status)}
+          <div class="flex gap-1 items-center">
+            ${UI.statusBadge(s.status)}
+            <button class="btn btn-ghost btn-sm" style="color:#F87171;font-size:10px;padding:4px 8px" onclick="event.stopPropagation();deleteScheduleConfirm(${s.id},'${(s.name||'').replace(/'/g,"\\'")}')" title="Delete schedule">🗑️</button>
+          </div>
         </div>
         <div class="text-xs text-muted mb-3">${UI.formatDate(s.start_date)} - ${UI.formatDate(s.end_date)}</div>
         <div class="stat-grid stat-grid-3">
@@ -210,5 +213,16 @@ async function createSchedule() {
     Router.navigate(`/admin/schedule/${result.id}`);
   } catch (err) {
     UI.toast(err.message, 'error');
+  }
+}
+
+async function deleteScheduleConfirm(id, name) {
+  if (!confirm('Delete schedule "' + name + '"? This will also remove all shifts assigned to it. This cannot be undone.')) return;
+  try {
+    await API.deleteSchedule(id);
+    UI.toast('Schedule deleted');
+    renderAdminSchedules(document.getElementById('app'));
+  } catch (err) {
+    UI.toast('Error: ' + err.message, 'error');
   }
 }

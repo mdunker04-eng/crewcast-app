@@ -93,7 +93,6 @@ const UI = {
     const tabs = [
       { id: 'dashboard', icon: SVG.grid, label: 'Home', path: '/admin' },
       { id: 'stations', icon: SVG.station, label: 'Stations', path: '/admin/stations' },
-      { id: 'schedules', icon: SVG.calendar, label: 'Season Calendar', path: '/admin/schedules' },
       { id: 'employees', icon: SVG.users, label: 'Team', path: '/admin/employees' },
     ];
     return `
@@ -114,19 +113,16 @@ const UI = {
     const items = [
       { section: 'Admin' },
       { id: 'welcome', icon: '🚀', label: 'Getting Started', path: '/admin/welcome' },
-      { id: 'cg-onboard', icon: '🌾', label: 'CG Spring Setup', path: '/admin/cg-onboard' },
       { id: 'dashboard', icon: SVG.grid, label: 'Dashboard', path: '/admin' },
       { id: 'stations', icon: SVG.station, label: 'Stations', path: '/admin/stations' },
-      { id: 'schedules', icon: SVG.calendar, label: 'Season Calendar', path: '/admin/schedules' },
       { id: 'employees', icon: SVG.users, label: 'Employees', path: '/admin/employees' },
       { id: 'settings', icon: '⚙️', label: 'Settings', path: '/admin/settings' },
       { section: 'Schedule' },
       { id: 'demo-dashboard', icon: '📊', label: 'Schedule Overview', path: '/admin/demo/dashboard' },
       { id: 'demo-crowdpulse', icon: '🎯', label: 'Attendance Forecast', path: '/admin/demo/crowdpulse' },
-      { id: 'demo-stations', icon: '🏗️', label: 'Station View', path: '/admin/demo/stations' },
-      // Coverage Grid merged into Station View as toggle
-      { section: 'Actions' },
       { id: 'demo-storm', icon: '🌧️', label: 'Storm Mode', path: '/admin/demo/storm', style: 'color:#F87171' },
+      { id: 'demo-stations', icon: '🏗️', label: 'Station View', path: '/admin/demo/stations' },
+      { section: 'Actions' },
       { id: 'demo-replacement', icon: '⚡', label: 'Auto-Replace', path: '/admin/demo/replacement', badge: '3' },
       { id: 'demo-cascade', icon: '🎬', label: 'Live Demo', path: '/admin/demo/cascade' },
       { id: 'demo-swaps', icon: '🔄', label: 'Shift Swaps', path: '/admin/demo/swaps' },
@@ -142,7 +138,7 @@ const UI = {
     return `
       <div class="admin-sidebar">
         <div class="sidebar-logo">
-          <h2>🌾 CrewCast</h2>
+          <h2><span style="-webkit-text-fill-color:initial">🌾</span> CrewCast</h2>
           <div class="sub">${businessName}</div>
         </div>
         ${items.map(item => {

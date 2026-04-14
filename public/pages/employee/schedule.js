@@ -1,6 +1,10 @@
 // ═══════════════════════════════════════════════════════
 // CrewCast — Employee Schedule View
+// Shows next shift highlight + date picker + full list
 // ═══════════════════════════════════════════════════════
+
+let _scheduleShifts = [];
+let _scheduleSelectedDate = null;
 
 async function renderEmployeeSchedule(app) {
   app.innerHTML = `
@@ -34,7 +38,7 @@ async function renderEmployeeSchedule(app) {
   }
 
   try {
-    const shifts = await API.getMyShifts();
+    _scheduleShifts = await API.getMyShifts();
 
     // Load station data for arrive-early display
     try {
@@ -43,70 +47,196 @@ async function renderEmployeeSchedule(app) {
       stations.forEach(s => { window._stationMap[s.name] = s; });
     } catch (e) { window._stationMap = {}; }
 
-    if (shifts.length === 0) {
-      document.getElementById('schedule-content').innerHTML = UI.empty(
-        '📅', 'No upcoming shifts', 'You\'ll see your shifts here when a schedule is published'
-      );
-      return;
-    }
-
-    // Group by date
-    const byDate = {};
-    shifts.forEach(s => {
-      if (!byDate[s.date]) byDate[s.date] = [];
-      byDate[s.date].push(s);
-    });
-
-    document.getElementById('schedule-content').innerHTML = Object.entries(byDate).map(([date, dayShifts]) => `
-      <div class="mb-4">
-        <h3 class="text-purple mb-2">${UI.formatDate(date)}</h3>
-        ${dayShifts.map(s => `
-          <div class="shift-card ${s.status}">
-            <div class="flex justify-between items-center">
-              <div>
-                <div class="shift-time semi">${UI.formatTime(s.start_time)} - ${UI.formatTime(s.end_time)}</div>
-                ${s.station ? `<div class="shift-station">${SVG.station} ${s.station}</div>` : ''}
-                ${(() => {
-                  if (s.station && window._stationMap && window._stationMap[s.station]) {
-                    const early = window._stationMap[s.station].arrive_early_minutes;
-                    if (early > 0) {
-                      const [h, m] = s.start_time.split(':').map(Number);
-                      const totalMin = h * 60 + m - early;
-                      const arrH = Math.floor(totalMin / 60);
-                      const arrM = totalMin % 60;
-                      const arrTime = UI.formatTime(String(arrH).padStart(2, '0') + ':' + String(arrM).padStart(2, '0'));
-                      return '<div class="text-xs text-amber mt-1">⏰ Arrive by ' + arrTime + ' (' + early + ' min early)</div>';
-                    }
-                  }
-                  return '';
-                })()}
-                ${s.notes ? `<div class="text-xs text-muted mt-2">${s.notes}</div>` : ''}
-              </div>
-              ${UI.statusBadge(s.status)}
-            </div>
-            ${s.status === 'pending' ? `
-              <div class="shift-actions">
-                <button class="btn btn-success btn-sm" onclick="respondToShift(${s.schedule_id}, ${s.id}, 'confirmed')">Confirm</button>
-                <button class="btn btn-danger btn-sm" onclick="showDeclineModal(${s.schedule_id}, ${s.id})">Can't Make It</button>
-              </div>
-            ` : ''}
-            ${s.status === 'declined' && s.decline_reason ? `
-              <div class="text-xs text-muted mt-2">Reason: ${s.decline_reason}</div>
-            ` : ''}
-            ${s.status === 'confirmed' ? `
-              <div class="mt-2">
-                <button class="btn btn-ghost btn-sm text-xs" onclick="showSwapModal(${s.schedule_id}, ${s.id})">Request Swap</button>
-              </div>
-            ` : ''}
-          </div>
-        `).join('')}
-      </div>
-    `).join('');
+    renderScheduleContent();
   } catch (err) {
     document.getElementById('schedule-content').innerHTML = `
       <div class="card text-center"><p class="text-red">${err.message}</p></div>
     `;
   }
+}
+
+function renderScheduleContent() {
+  const shifts = _scheduleShifts;
+  const container = document.getElementById('schedule-content');
+
+  if (shifts.length === 0) {
+    container.innerHTML = UI.empty(
+      '📅', 'No upcoming shifts', 'You\'ll see your shifts here when a schedule is published'
+    );
+    return;
+  }
+
+  // Find next shift (first upcoming)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const nextShift = shifts.find(s => s.date >= todayStr && s.status !== 'declined');
+
+  // Collect unique dates for the date picker
+  const uniqueDates = [...new Set(shifts.map(s => s.date))].sort();
+
+  // Group by date
+  const byDate = {};
+  shifts.forEach(s => {
+    if (!byDate[s.date]) byDate[s.date] = [];
+    byDate[s.date].push(s);
+  });
+
+  // If a date is selected, filter; otherwise show all
+  const datesToShow = _scheduleSelectedDate
+    ? { [_scheduleSelectedDate]: byDate[_scheduleSelectedDate] || [] }
+    : byDate;
+
+  container.innerHTML = `
+    ${nextShift ? renderNextUpCard(nextShift) : ''}
+
+    <!-- Date picker strip -->
+    <div class="card" style="padding:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span class="text-xs semi text-muted" style="text-transform:uppercase;letter-spacing:.5px">Jump to date</span>
+        ${_scheduleSelectedDate ? `<button class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 8px" onclick="_scheduleSelectedDate=null;renderScheduleContent()">Show All</button>` : ''}
+      </div>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch">
+        ${uniqueDates.map(date => {
+          const d = new Date(date + 'T12:00:00');
+          const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+          const dayNum = d.getDate();
+          const monthName = d.toLocaleDateString('en-US', { month: 'short' });
+          const isSelected = _scheduleSelectedDate === date;
+          const isNext = nextShift && nextShift.date === date && !_scheduleSelectedDate;
+          const dayShifts = byDate[date] || [];
+          const hasPending = dayShifts.some(s => s.status === 'pending');
+          return `
+            <button onclick="_scheduleSelectedDate='${date}';renderScheduleContent()"
+              style="
+                flex-shrink:0;
+                min-width:56px;
+                padding:8px 6px;
+                border-radius:12px;
+                border:1px solid ${isSelected ? 'var(--purple)' : isNext ? 'rgba(124,58,237,.4)' : 'var(--border)'};
+                background:${isSelected ? 'var(--purple-bg)' : isNext ? 'rgba(124,58,237,.06)' : 'var(--bg-primary)'};
+                cursor:pointer;
+                text-align:center;
+                transition:all .15s;
+                position:relative;
+              " class="btn">
+              <div style="font-size:9px;color:var(--text-muted);font-weight:600;text-transform:uppercase">${dayName}</div>
+              <div style="font-size:18px;font-weight:700;color:${isSelected ? 'var(--purple-light)' : 'var(--text-primary)'};margin:2px 0">${dayNum}</div>
+              <div style="font-size:9px;color:var(--text-muted)">${monthName}</div>
+              ${hasPending ? '<div style="position:absolute;top:4px;right:4px;width:6px;height:6px;background:var(--amber);border-radius:50%"></div>' : ''}
+            </button>
+          `;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Shifts list -->
+    ${Object.entries(datesToShow).map(([date, dayShifts]) => {
+      if (!dayShifts || dayShifts.length === 0) {
+        return `<div class="card text-center"><p class="text-muted text-sm">No shifts on this date</p></div>`;
+      }
+      return `
+        <div class="mb-4">
+          <h3 class="text-purple mb-2">${UI.formatDate(date)}</h3>
+          ${dayShifts.map(s => renderScheduleShiftCard(s)).join('')}
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+function renderNextUpCard(shift) {
+  const d = new Date(shift.date + 'T12:00:00');
+  const dayLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  // Calculate time until shift
+  const now = new Date();
+  const shiftStart = new Date(shift.date + 'T' + shift.start_time);
+  const diffMs = shiftStart - now;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+  let countdownText = '';
+  if (diffDays > 0) countdownText = `in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
+  else if (diffHours > 0) countdownText = `in ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+  else if (diffMs > 0) countdownText = 'starting soon';
+  else countdownText = 'now';
+
+  // Arrive early
+  let arriveNote = '';
+  if (shift.station && window._stationMap && window._stationMap[shift.station]) {
+    const early = window._stationMap[shift.station].arrive_early_minutes;
+    if (early > 0) {
+      const [h, m] = shift.start_time.split(':').map(Number);
+      const totalMin = h * 60 + m - early;
+      const arrH = Math.floor(totalMin / 60);
+      const arrM = totalMin % 60;
+      const arrTime = UI.formatTime(`${String(arrH).padStart(2, '0')}:${String(arrM).padStart(2, '0')}`);
+      arriveNote = `<div class="text-xs" style="color:var(--amber-text);margin-top:6px">⏰ Arrive by ${arrTime} (${early} min early)</div>`;
+    }
+  }
+
+  return `
+    <div class="card" style="background:linear-gradient(135deg, rgba(124,58,237,.12) 0%, rgba(45,212,191,.06) 100%);border-color:rgba(124,58,237,.3);margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:var(--gradient-brand);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Next Up</span>
+        <span class="badge badge-purple" style="font-size:9px">${countdownText}</span>
+      </div>
+      <div class="semi" style="font-size:15px;margin-bottom:2px">${dayLabel}</div>
+      <div style="font-size:14px;color:var(--text-secondary)">${UI.formatTime(shift.start_time)} – ${UI.formatTime(shift.end_time)}</div>
+      ${shift.station ? `<div style="font-size:13px;color:var(--amber-text);margin-top:4px">${SVG.station} ${shift.station}</div>` : ''}
+      ${arriveNote}
+      ${shift.notes ? `<div class="text-xs text-muted mt-2">${shift.notes}</div>` : ''}
+      <div style="margin-top:8px">${UI.statusBadge(shift.status)}</div>
+      ${shift.status === 'pending' ? `
+        <div class="shift-actions" style="margin-top:10px">
+          <button class="btn btn-success btn-sm" onclick="respondToShift(${shift.schedule_id}, ${shift.id}, 'confirmed')">Confirm</button>
+          <button class="btn btn-danger btn-sm" onclick="showDeclineModal(${shift.schedule_id}, ${shift.id})">Can't Make It</button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderScheduleShiftCard(s) {
+  let arriveNote = '';
+  if (s.station && window._stationMap && window._stationMap[s.station]) {
+    const early = window._stationMap[s.station].arrive_early_minutes;
+    if (early > 0) {
+      const [h, m] = s.start_time.split(':').map(Number);
+      const totalMin = h * 60 + m - early;
+      const arrH = Math.floor(totalMin / 60);
+      const arrM = totalMin % 60;
+      const arrTime = UI.formatTime(String(arrH).padStart(2, '0') + ':' + String(arrM).padStart(2, '0'));
+      arriveNote = '<div class="text-xs text-amber mt-1">⏰ Arrive by ' + arrTime + ' (' + early + ' min early)</div>';
+    }
+  }
+
+  return `
+    <div class="shift-card ${s.status}">
+      <div class="flex justify-between items-center">
+        <div>
+          <div class="shift-time semi">${UI.formatTime(s.start_time)} - ${UI.formatTime(s.end_time)}</div>
+          ${s.station ? `<div class="shift-station">${SVG.station} ${s.station}</div>` : ''}
+          ${arriveNote}
+          ${s.notes ? `<div class="text-xs text-muted mt-2">${s.notes}</div>` : ''}
+        </div>
+        ${UI.statusBadge(s.status)}
+      </div>
+      ${s.status === 'pending' ? `
+        <div class="shift-actions">
+          <button class="btn btn-success btn-sm" onclick="respondToShift(${s.schedule_id}, ${s.id}, 'confirmed')">Confirm</button>
+          <button class="btn btn-danger btn-sm" onclick="showDeclineModal(${s.schedule_id}, ${s.id})">Can't Make It</button>
+        </div>
+      ` : ''}
+      ${s.status === 'declined' && s.decline_reason ? `
+        <div class="text-xs text-muted mt-2">Reason: ${s.decline_reason}</div>
+      ` : ''}
+      ${s.status === 'confirmed' ? `
+        <div class="mt-2">
+          <button class="btn btn-ghost btn-sm text-xs" onclick="showSwapModal(${s.schedule_id}, ${s.id})">Request Swap</button>
+        </div>
+      ` : ''}
+    </div>
+  `;
 }
 
 function showDeclineModal(scheduleId, shiftId) {
@@ -136,19 +266,11 @@ function showDeclineModal(scheduleId, shiftId) {
       <label class="form-label">Please specify</label>
       <input type="text" id="decline-other" class="form-input" placeholder="What's going on?">
     </div>
-    <script>
-      document.querySelectorAll('input[name="decline-reason"]').forEach(r => {
-        r.addEventListener('change', () => {
-          document.getElementById('decline-other-wrap').classList.toggle('hidden', r.value !== 'Other');
-        });
-      });
-    </script>
   `, `
     <button class="btn btn-danger" onclick="submitDecline(${scheduleId}, ${shiftId})">Decline Shift</button>
     <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
   `);
 
-  // Attach the Other toggle listener after modal renders
   setTimeout(() => {
     document.querySelectorAll('input[name="decline-reason"]').forEach(r => {
       r.addEventListener('change', () => {
