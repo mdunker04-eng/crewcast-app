@@ -101,26 +101,31 @@ async function renderEmployeeHome(app) {
 }
 
 function renderShiftCard(shift, showActions) {
-  // Calculate arrive-early time if we know the station
+  // Look up station data for icon + arrive-early
+  const stData = (shift.station && window._stationMap) ? window._stationMap[shift.station] : null;
+  const stIcon = (stData && stData.icon) ? stData.icon : '📋';
+
   let arriveNote = '';
-  if (shift.station && window._stationMap && window._stationMap[shift.station]) {
-    const early = window._stationMap[shift.station].arrive_early_minutes;
-    if (early > 0) {
-      const [h, m] = shift.start_time.split(':').map(Number);
-      const totalMin = h * 60 + m - early;
-      const arrH = Math.floor(totalMin / 60);
-      const arrM = totalMin % 60;
-      const arrTime = UI.formatTime(`${String(arrH).padStart(2, '0')}:${String(arrM).padStart(2, '0')}`);
-      arriveNote = `<div class="text-xs text-amber mt-1">⏰ Arrive by ${arrTime} (${early} min early)</div>`;
-    }
+  if (stData && stData.arrive_early_minutes > 0) {
+    const [h, m] = shift.start_time.split(':').map(Number);
+    const totalMin = h * 60 + m - stData.arrive_early_minutes;
+    const arrH = Math.floor(totalMin / 60);
+    const arrM = totalMin % 60;
+    const arrTime = UI.formatTime(`${String(arrH).padStart(2, '0')}:${String(arrM).padStart(2, '0')}`);
+    arriveNote = `<div class="shift-arrive">⏰ Arrive by ${arrTime} (${stData.arrive_early_minutes} min early)</div>`;
   }
 
   return `
     <div class="shift-card ${shift.status}">
-      <div class="shift-date">${UI.formatDate(shift.date)}</div>
-      <div class="shift-time">${UI.formatTime(shift.start_time)} - ${UI.formatTime(shift.end_time)}</div>
-      ${shift.station ? `<div class="shift-station">${SVG.station} ${shift.station}</div>` : ''}
-      ${arriveNote}
+      <div class="shift-card-body">
+        ${shift.station ? `<div class="shift-card-icon">${stIcon}</div>` : ''}
+        <div class="shift-card-details">
+          <div class="shift-date">${UI.formatDate(shift.date)}</div>
+          <div class="shift-time">${UI.formatTime(shift.start_time)} - ${UI.formatTime(shift.end_time)}</div>
+          ${shift.station ? `<div class="shift-station-name">${shift.station}</div>` : ''}
+          ${arriveNote}
+        </div>
+      </div>
       <div class="flex justify-between items-center mt-2">
         ${UI.statusBadge(shift.status)}
         ${shift.schedule_name ? `<span class="text-xs text-muted">${shift.schedule_name}</span>` : ''}

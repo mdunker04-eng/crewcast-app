@@ -204,6 +204,51 @@ async function initDB() {
       ALTER TABLE employee_stations ADD COLUMN IF NOT EXISTS rank INTEGER DEFAULT 0
     `).catch(() => {});
 
+    // Migration: add icon column to stations (emoji per station)
+    await client.query(`ALTER TABLE stations ADD COLUMN IF NOT EXISTS icon TEXT DEFAULT NULL`).catch(() => {});
+
+    // Backfill station icons from name keywords
+    const STATION_ICON_MAP = {
+      'admission': '🎟️', 'ticket': '🎟️', 'gate': '🎟️',
+      'tulip': '🌷', 'flower': '🌸',
+      'animal': '🐣', 'petting': '🐣', 'goat': '🐐',
+      'bottle': '🍼', 'feeding': '🍼',
+      'corn pool': '🌽', 'corn maze': '🌽',
+      'jumping': '🤸', 'pillow': '🤸', 'bounce': '🤸',
+      'slide': '🛝',
+      'train': '🚂', 'express': '🚂',
+      'beeline': '🐝', 'honey': '🐝', 'zip': '🐝',
+      'hayride': '🚜', 'tractor': '🚜',
+      'bake': '🧁', 'bakery': '🧁', 'donut': '🧁',
+      'store': '🏪', 'country store': '🏪', 'retail': '🏪', 'gift': '🏪',
+      'cafe': '☕', 'coffee': '☕',
+      'lemonade': '🍋', 'slush': '🍋',
+      'strawberry': '🍓',
+      'apple': '🍎', 'orchard': '🍎',
+      'pumpkin': '🎃',
+      'parking': '🅿️', 'shuttle': '🅿️',
+      'grounds': '🔧', 'maint': '🔧', 'repair': '🔧',
+      'float': '🔄', 'general': '🔄',
+      'food': '🍔', 'kitchen': '🍔', 'grill': '🍔',
+      'sunflower': '🌻',
+      'slingshot': '🎯',
+      'pedal': '🚗', 'go-cart': '🚗', 'cart': '🚗',
+    };
+    try {
+      const { rows: unIconed } = await client.query(
+        `SELECT id, name FROM stations WHERE icon IS NULL`
+      );
+      for (const st of unIconed) {
+        const lower = st.name.toLowerCase();
+        let icon = '📋';
+        for (const [keyword, emoji] of Object.entries(STATION_ICON_MAP)) {
+          if (lower.includes(keyword)) { icon = emoji; break; }
+        }
+        await client.query('UPDATE stations SET icon = $1 WHERE id = $2', [icon, st.id]);
+      }
+      if (unIconed.length > 0) console.log(`Backfilled icons for ${unIconed.length} stations`);
+    } catch (e) { console.log('Station icon backfill note:', e.message); }
+
     console.log('Database schema initialized');
 
     // Migration: add min_staff / max_staff columns to stations

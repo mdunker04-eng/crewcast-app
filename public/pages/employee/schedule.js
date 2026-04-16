@@ -160,30 +160,35 @@ function renderNextUpCard(shift) {
   else if (diffMs > 0) countdownText = 'starting soon';
   else countdownText = 'now';
 
-  // Arrive early
+  // Station icon + arrive early
+  const stData = (shift.station && window._stationMap) ? window._stationMap[shift.station] : null;
+  const stIcon = (stData && stData.icon) ? stData.icon : '📋';
+
   let arriveNote = '';
-  if (shift.station && window._stationMap && window._stationMap[shift.station]) {
-    const early = window._stationMap[shift.station].arrive_early_minutes;
-    if (early > 0) {
-      const [h, m] = shift.start_time.split(':').map(Number);
-      const totalMin = h * 60 + m - early;
-      const arrH = Math.floor(totalMin / 60);
-      const arrM = totalMin % 60;
-      const arrTime = UI.formatTime(`${String(arrH).padStart(2, '0')}:${String(arrM).padStart(2, '0')}`);
-      arriveNote = `<div class="text-xs" style="color:var(--amber-text);margin-top:6px">⏰ Arrive by ${arrTime} (${early} min early)</div>`;
-    }
+  if (stData && stData.arrive_early_minutes > 0) {
+    const [h, m] = shift.start_time.split(':').map(Number);
+    const totalMin = h * 60 + m - stData.arrive_early_minutes;
+    const arrH = Math.floor(totalMin / 60);
+    const arrM = totalMin % 60;
+    const arrTime = UI.formatTime(`${String(arrH).padStart(2, '0')}:${String(arrM).padStart(2, '0')}`);
+    arriveNote = `<div class="shift-arrive" style="margin-top:6px">⏰ Arrive by ${arrTime} (${stData.arrive_early_minutes} min early)</div>`;
   }
 
   return `
     <div class="card" style="background:linear-gradient(135deg, rgba(124,58,237,.12) 0%, rgba(45,212,191,.06) 100%);border-color:rgba(124,58,237,.3);margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
         <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:var(--gradient-brand);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Next Up</span>
         <span class="badge badge-purple" style="font-size:9px">${countdownText}</span>
       </div>
-      <div class="semi" style="font-size:15px;margin-bottom:2px">${dayLabel}</div>
-      <div style="font-size:14px;color:var(--text-secondary)">${UI.formatTime(shift.start_time)} – ${UI.formatTime(shift.end_time)}</div>
-      ${shift.station ? `<div style="font-size:13px;color:var(--amber-text);margin-top:4px">${SVG.station} ${shift.station}</div>` : ''}
-      ${arriveNote}
+      <div class="shift-card-body">
+        ${shift.station ? `<div class="shift-card-icon" style="font-size:36px;width:52px;height:52px;background:rgba(124,58,237,.12);border-radius:14px">${stIcon}</div>` : ''}
+        <div class="shift-card-details">
+          <div class="shift-station-name" style="font-size:16px;margin-top:0;margin-bottom:2px">${shift.station || 'Shift'}</div>
+          <div class="semi" style="font-size:14px;color:var(--text-primary);margin-bottom:1px">${dayLabel}</div>
+          <div style="font-size:13px;color:var(--text-secondary)">${UI.formatTime(shift.start_time)} – ${UI.formatTime(shift.end_time)}</div>
+          ${arriveNote}
+        </div>
+      </div>
       ${shift.notes ? `<div class="text-xs text-muted mt-2">${shift.notes}</div>` : ''}
       <div style="margin-top:8px">${UI.statusBadge(shift.status)}</div>
       ${shift.status === 'pending' ? `
@@ -197,25 +202,26 @@ function renderNextUpCard(shift) {
 }
 
 function renderScheduleShiftCard(s) {
+  const stData = (s.station && window._stationMap) ? window._stationMap[s.station] : null;
+  const stIcon = (stData && stData.icon) ? stData.icon : '📋';
+
   let arriveNote = '';
-  if (s.station && window._stationMap && window._stationMap[s.station]) {
-    const early = window._stationMap[s.station].arrive_early_minutes;
-    if (early > 0) {
-      const [h, m] = s.start_time.split(':').map(Number);
-      const totalMin = h * 60 + m - early;
-      const arrH = Math.floor(totalMin / 60);
-      const arrM = totalMin % 60;
-      const arrTime = UI.formatTime(String(arrH).padStart(2, '0') + ':' + String(arrM).padStart(2, '0'));
-      arriveNote = '<div class="text-xs text-amber mt-1">⏰ Arrive by ' + arrTime + ' (' + early + ' min early)</div>';
-    }
+  if (stData && stData.arrive_early_minutes > 0) {
+    const [h, m] = s.start_time.split(':').map(Number);
+    const totalMin = h * 60 + m - stData.arrive_early_minutes;
+    const arrH = Math.floor(totalMin / 60);
+    const arrM = totalMin % 60;
+    const arrTime = UI.formatTime(String(arrH).padStart(2, '0') + ':' + String(arrM).padStart(2, '0'));
+    arriveNote = '<div class="shift-arrive">⏰ Arrive by ' + arrTime + ' (' + stData.arrive_early_minutes + ' min early)</div>';
   }
 
   return `
     <div class="shift-card ${s.status}">
-      <div class="flex justify-between items-center">
-        <div>
-          <div class="shift-time semi">${UI.formatTime(s.start_time)} - ${UI.formatTime(s.end_time)}</div>
-          ${s.station ? `<div class="shift-station">${SVG.station} ${s.station}</div>` : ''}
+      <div class="shift-card-body">
+        ${s.station ? `<div class="shift-card-icon">${stIcon}</div>` : ''}
+        <div class="shift-card-details" style="flex:1">
+          <div class="shift-station-name">${s.station || ''}</div>
+          <div class="shift-time">${UI.formatTime(s.start_time)} - ${UI.formatTime(s.end_time)}</div>
           ${arriveNote}
           ${s.notes ? `<div class="text-xs text-muted mt-2">${s.notes}</div>` : ''}
         </div>
