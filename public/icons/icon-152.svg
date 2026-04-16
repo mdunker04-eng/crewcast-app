@@ -2,10 +2,17 @@
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#7C3AED"/>
-      <stop offset="100%" stop-color="#2DD4BF"/>
+      <stop offset="50%" stop-color="#6D28D9"/>
+      <stop offset="100%" stop-color="#4C1D95"/>
     </linearGradient>
   </defs>
   <rect width="192" height="192" rx="42" fill="url(#bg)"/>
-  <text x="96" y="108" text-anchor="middle" dominant-baseline="central"
-    font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="80" fill="white" letter-spacing="-4">CC</text>
+  <!-- Bold Apple -->
+  <path d="M96 52c-37-11-63 16-59 53 5 43 32 59 59 59s54-16 59-59c5-37-22-64-59-53z" fill="white" opacity=".92"/>
+  <!-- Stem -->
+  <path d="M91 52c5-16 16-21 27-21" stroke="white" stroke-width="6.5" stroke-linecap="round" fill="none"/>
+  <!-- Leaf -->
+  <path d="M107 34c11-3 21 0 27 8-5 5-16 5-27-3" fill="white" opacity=".65"/>
+  <!-- Subtle shine -->
+  <ellipse cx="74" cy="84" rx="11" ry="16" fill="white" opacity=".12" transform="rotate(-20 74 84)"/>
 </svg>
