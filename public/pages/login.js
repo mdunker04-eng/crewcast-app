@@ -6,14 +6,6 @@ function renderLogin(app) {
   app.innerHTML = `
     <div class="login-page">
       <div class="login-brand">
-        <div class="login-icon">
-          <svg viewBox="0 0 32 32" fill="none">
-            <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4z" fill="none"/>
-            <path d="M10 15.5L14 20L22 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="16" cy="16" r="10" stroke="white" stroke-width="1.5" opacity=".4"/>
-            <path d="M16 6v2M16 24v2M6 16h2M24 16h2" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity=".3"/>
-          </svg>
-        </div>
         <div class="login-logo">CrewCast</div>
         <div class="login-sub">Smart Workforce Scheduling</div>
       </div>

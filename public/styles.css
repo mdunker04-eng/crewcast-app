@@ -307,18 +307,6 @@ select.form-input { appearance: none; cursor: pointer; }
   align-items: center;
   margin-bottom: 32px;
 }
-.login-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  background: var(--gradient-brand);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-  box-shadow: 0 4px 24px rgba(124,58,237,.4);
-}
-.login-icon svg { width: 32px; height: 32px; }
 .login-logo {
   font-size: 28px;
   font-weight: 800;
