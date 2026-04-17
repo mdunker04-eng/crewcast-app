@@ -307,7 +307,22 @@ function onStationSelect() {
 async function publishSchedule(scheduleId) {
   try {
     await API.updateSchedule(scheduleId, { status: 'published' });
-    UI.toast('Schedule published! Employees can now see their shifts.');
+
+    // Notify employees about the published schedule
+    const schedule = window._scheduleData;
+    try {
+      const result = await API.notifySchedulePublished(
+        scheduleId,
+        schedule?.name,
+        schedule?.start_date,
+        schedule?.end_date
+      );
+      const notified = (result.pushSent || 0) + (result.smsSent || 0);
+      UI.toast(`Schedule published! ${notified} employee${notified !== 1 ? 's' : ''} notified.`);
+    } catch (e) {
+      UI.toast('Schedule published! (Notification delivery pending)');
+    }
+
     renderScheduleDetail(document.getElementById('app'), { id: scheduleId });
   } catch (err) {
     UI.toast(err.message, 'error');

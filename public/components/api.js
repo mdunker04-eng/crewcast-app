@@ -94,6 +94,9 @@ const API = {
   getVapidKey: () => API.get('/api/push/vapid-key'),
   subscribePush: (subscription) => API.post('/api/push/subscribe', { subscription }),
   sendPush: (data) => API.post('/api/push/send', data),
+  sendShiftReminders: (type) => API.post('/api/push/shift-reminders', { type }),
+  notifySchedulePublished: (scheduleId, scheduleName, startDate, endDate) =>
+    API.post('/api/push/schedule-published', { scheduleId, scheduleName, startDate, endDate }),
 
   // ── Employee-Station Skills ──
   getEmployeeStations: (empId) => API.get(`/api/employees/${empId}/stations`),

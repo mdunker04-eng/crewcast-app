@@ -80,6 +80,40 @@ async function start() {
       console.log(`  CrewCast PWA Server`);
       console.log(`  http://localhost:${PORT}`);
       console.log(`══════════════════════════════════════════\n`);
+
+      // ── Shift Reminder Scheduler ──
+      // Runs every hour, sends reminders at appropriate times
+      setInterval(async () => {
+        const hour = new Date().getHours();
+        const secret = process.env.CRON_SECRET || 'crewcast-cron-2026';
+        const base = `http://localhost:${PORT}`;
+
+        try {
+          // Day-before reminder at 7 PM
+          if (hour === 19) {
+            const res = await fetch(`${base}/api/push/shift-reminders`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Cron-Secret': secret },
+              body: JSON.stringify({ type: 'day-before' }),
+            });
+            const data = await res.json();
+            console.log(`[Cron] Day-before reminders:`, data);
+          }
+
+          // Morning-of reminder at 6 AM
+          if (hour === 6) {
+            const res = await fetch(`${base}/api/push/shift-reminders`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Cron-Secret': secret },
+              body: JSON.stringify({ type: 'morning-of' }),
+            });
+            const data = await res.json();
+            console.log(`[Cron] Morning-of reminders:`, data);
+          }
+        } catch (e) {
+          console.log('[Cron] Reminder error:', e.message);
+        }
+      }, 60 * 60 * 1000); // every hour
     });
   } catch (err) {
     console.error('Failed to start server:', err);

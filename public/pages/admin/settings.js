@@ -169,11 +169,22 @@ function renderSettingsSections() {
 
     <!-- 8. Communication -->
     <div class="card mb-4" id="settings-sec-8">
-      <div class="card-title mb-3">📱 Communication</div>
+      <div class="card-title mb-3">📱 Communication & Reminders</div>
       ${settingsToggle('pushNotifications', 'Push notifications for new schedules', true)}
       ${settingsToggle('smsNotifications', 'SMS notifications (per-message cost)')}
       ${settingsToggle('notifyOnShiftChange', 'Notify employees when shifts change', true)}
       ${settingsToggle('groupAnnouncements', 'Enable group announcements to all staff', true)}
+      ${settingsToggle('shiftReminders', 'Automatic shift reminders (push + SMS fallback)', true)}
+      ${settingsToggle('reminderDayBefore', 'Day-before reminder (evening)', true)}
+      ${settingsToggle('reminderMorningOf', 'Morning-of reminder', true)}
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div class="text-xs semi mb-2">Manual Reminder Send</div>
+        <div class="flex gap-2 flex-wrap">
+          <button class="btn btn-secondary btn-sm" onclick="sendManualReminders('day-before')">📅 Send Day-Before Reminders</button>
+          <button class="btn btn-secondary btn-sm" onclick="sendManualReminders('morning-of')">⏰ Send Morning-Of Reminders</button>
+        </div>
+        <div id="reminder-result" class="text-xs text-muted mt-2"></div>
+      </div>
     </div>
 
     <!-- 9. Employee Onboarding -->
@@ -351,5 +362,17 @@ function wireToggleVisibility(toggleKey, targetId) {
     cb.addEventListener('change', () => {
       target.style.display = cb.checked ? '' : 'none';
     });
+  }
+}
+
+async function sendManualReminders(type) {
+  const resultEl = document.getElementById('reminder-result');
+  resultEl.textContent = 'Sending reminders...';
+  try {
+    const result = await API.sendShiftReminders(type);
+    const total = (result.pushSent || 0) + (result.smsSent || 0);
+    resultEl.innerHTML = `✅ Sent ${total} reminder${total !== 1 ? 's' : ''} for ${result.targetDate} (${result.pushSent || 0} push, ${result.smsSent || 0} SMS)`;
+  } catch (err) {
+    resultEl.innerHTML = `<span style="color:#F87171">❌ ${err.message}</span>`;
   }
 }
