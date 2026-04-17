@@ -316,10 +316,10 @@ async function deactivateEmployee(id, name) {
 // Admin: Employee Preferences & Rankings
 // ═══════════════════════════════════════════════════════
 
-let _empPrefData = { empId: null, empName: '', stations: [], allStations: [], ranked: [] };
+let _empPrefData = { empId: null, empName: '', stations: [], allStations: [], ranked: [], pinnedStations: new Set() };
 
 async function showEmpPreferencesModal(empId, empName) {
-  _empPrefData = { empId, empName, stations: [], allStations: [], ranked: [] };
+  _empPrefData = { empId, empName, stations: [], allStations: [], ranked: [], pinnedStations: new Set() };
 
   UI.showModal(`⭐ ${empName} — Preferences`, `<div id="emp-pref-content">${UI.loading()}</div>`, '');
 
@@ -329,12 +329,14 @@ async function showEmpPreferencesModal(empId, empName) {
       API.getStations(),
     ]);
 
-    _empPrefData.allStations = allStations.filter(s => s.active);
+    _empPrefData.allStations = allStations.filter(s => s.active && s.name !== 'Float Pool');
     _empPrefData.stations = empStations;
+
+    // Track pinned stations
+    empStations.forEach(es => { if (es.pinned) _empPrefData.pinnedStations.add(es.station_id); });
 
     // Build ranked list (stations with a rank, in order)
     const ranked = empStations.filter(es => es.rank != null).sort((a, b) => a.rank - b.rank);
-    // Stations they're trained on but haven't ranked
     const unranked = empStations.filter(es => es.rank == null);
 
     _empPrefData.ranked = ranked.map(r => r.station_id);
@@ -368,12 +370,15 @@ function renderEmpPrefUI() {
       const st = stationMap[stId];
       if (!st) return;
       const rankColor = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--text-muted)';
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${idx < 3 ? 'rgba(167,139,250,.08)' : 'rgba(30,41,59,.5)'};border:1px solid ${idx < 3 ? 'rgba(167,139,250,.2)' : '#334155'};border-radius:8px">
+      const isPinned = _empPrefData.pinnedStations.has(stId);
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${isPinned ? 'rgba(251,191,36,.08)' : idx < 3 ? 'rgba(167,139,250,.08)' : 'rgba(30,41,59,.5)'};border:1px solid ${isPinned ? 'rgba(251,191,36,.3)' : idx < 3 ? 'rgba(167,139,250,.2)' : '#334155'};border-radius:8px">
         <span class="semi" style="color:${rankColor};font-size:15px;width:28px;text-align:center">#${idx + 1}</span>
         <div style="flex:1">
           <div class="semi text-sm">${st.name}</div>
+          ${isPinned ? '<div class="text-xs" style="color:var(--amber-text)">📌 Pinned — always assigned here</div>' : ''}
         </div>
         <div class="flex gap-1">
+          <button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:13px;${isPinned ? 'color:var(--amber-text)' : 'opacity:.4'}" onclick="toggleEmpPin(${stId})" title="${isPinned ? 'Unpin from station' : 'Pin to station (always assigned here)'}">📌</button>
           ${idx > 0 ? `<button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:11px" onclick="empPrefMove(${idx},-1)">▲</button>` : '<span style="width:28px"></span>'}
           ${idx < ranked.length - 1 ? `<button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:11px" onclick="empPrefMove(${idx},1)">▼</button>` : '<span style="width:28px"></span>'}
           <button class="btn btn-ghost btn-sm" style="padding:2px 6px;color:var(--red);font-size:11px" onclick="empPrefRemove(${idx})">✕</button>
@@ -449,6 +454,23 @@ function empPrefAddRank(stationId) {
 function empPrefAddNew(stationId) {
   _empPrefData.ranked.push(stationId);
   renderEmpPrefUI();
+}
+
+async function toggleEmpPin(stationId) {
+  const isPinned = _empPrefData.pinnedStations.has(stationId);
+  try {
+    await API.pinStation(_empPrefData.empId, stationId, !isPinned);
+    if (isPinned) {
+      _empPrefData.pinnedStations.delete(stationId);
+      UI.toast('Unpinned');
+    } else {
+      _empPrefData.pinnedStations.add(stationId);
+      UI.toast('📌 Pinned — will always be assigned here in auto-fill');
+    }
+    renderEmpPrefUI();
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
 }
 
 async function saveEmpPrefs() {

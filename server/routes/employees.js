@@ -477,6 +477,57 @@ router.put('/:id/station-rating', authenticate, requireAdmin, async (req, res) =
   }
 });
 
+// ── PUT /api/employees/:id/pin-station ──
+// Pin/unpin an employee to a specific station for auto-fill
+router.put('/:id/pin-station', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { stationId, pinned } = req.body;
+    if (!stationId) return res.status(400).json({ error: 'stationId required' });
+
+    // Ensure employee_stations row exists
+    const { rows } = await pool.query(
+      'SELECT id FROM employee_stations WHERE employee_id = $1 AND station_id = $2',
+      [req.params.id, stationId]
+    );
+    if (rows.length === 0) {
+      // Create the association and pin
+      await pool.query(
+        'INSERT INTO employee_stations (employee_id, station_id, pinned) VALUES ($1, $2, $3)',
+        [req.params.id, stationId, pinned !== false]
+      );
+    } else {
+      await pool.query(
+        'UPDATE employee_stations SET pinned = $1 WHERE employee_id = $2 AND station_id = $3',
+        [pinned !== false, req.params.id, stationId]
+      );
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Pin station error:', err);
+    res.status(500).json({ error: 'Failed to pin station' });
+  }
+});
+
+// ── GET /api/employees/pinned ──
+// Get all pinned employee-station pairs for this business
+router.get('/pinned/list', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT es.employee_id, es.station_id, es.pinned,
+        e.first_name, e.last_name, s.name as station_name
+      FROM employee_stations es
+      JOIN employees e ON es.employee_id = e.id
+      JOIN stations s ON es.station_id = s.id
+      WHERE e.business_id = $1 AND es.pinned = true AND e.active = true
+      ORDER BY s.name, e.last_name
+    `, [req.user.businessId]);
+    res.json(rows);
+  } catch (err) {
+    console.error('Get pinned error:', err);
+    res.status(500).json({ error: 'Failed to get pinned employees' });
+  }
+});
+
 // ── GET /api/employees/:id/station-ratings ──
 // Get per-station ratings for an employee
 router.get('/:id/station-ratings', authenticate, async (req, res) => {

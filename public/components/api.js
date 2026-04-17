@@ -74,6 +74,9 @@ const API = {
     API.put(`/api/schedules/${scheduleId}/shifts/${shiftId}/respond`, { status, notes, decline_reason }),
   getMyShifts: () => API.get('/api/schedules/my-shifts'),
 
+  // ── Auto-Fill (server-side smart scheduling) ──
+  autoFill: (scheduleId, options) => API.post(`/api/schedules/${scheduleId}/auto-fill`, options),
+
   // ── Availability ──
   getAvailability: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
@@ -96,6 +99,10 @@ const API = {
   getEmployeeStations: (empId) => API.get(`/api/employees/${empId}/stations`),
   updateEmployeeStations: (empId, stationIds) => API.put(`/api/employees/${empId}/stations`, { stationIds }),
   getEmployeesByStation: (stationId) => API.get(`/api/employees/by-station/${stationId}`),
+
+  // ── Pinned Employees ──
+  pinStation: (empId, stationId, pinned) => API.put(`/api/employees/${empId}/pin-station`, { stationId, pinned }),
+  getPinnedEmployees: () => API.get('/api/employees/pinned/list'),
 
   // ── Station Categories & Category Ratings ──
   getCategories: () => API.get('/api/employees/categories/list'),

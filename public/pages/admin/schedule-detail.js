@@ -315,41 +315,40 @@ async function publishSchedule(scheduleId) {
 }
 
 // ═══════════════════════════════════════════════════════
-// Auto-Fill Shifts — generate shifts from stations
+// Auto-Fill Shifts — server-side smart scheduling
+// Weights: Preference, Skill, Fairness (configurable)
+// Supports: pinned employees, floater pool, availability
 // ═══════════════════════════════════════════════════════
 
 async function showAutoFillModal(scheduleId) {
   const schedule = window._scheduleData;
-  // Exclude admins/leads from auto-fill
   const emps = (window._scheduleEmployees || []).filter(e => e.role !== 'admin' && e.role !== 'lead');
 
   let stations = [];
   try {
-    stations = (await API.getStations()).filter(s => s.active);
+    stations = (await API.getStations()).filter(s => s.active && s.name !== 'Float Pool');
   } catch (e) {
     UI.toast('Set up stations first', 'error');
     return;
   }
+  if (stations.length === 0) { UI.toast('No stations set up yet.', 'error'); return; }
 
-  if (stations.length === 0) {
-    UI.toast('No stations set up yet. Go to Stations first.', 'error');
-    return;
-  }
+  // Load settings + pinned employees
+  let settings = {};
+  let pinnedList = [];
+  try { settings = await API.getSettings(); } catch (e) {}
+  try { pinnedList = await API.getPinnedEmployees(); } catch (e) {}
 
-  // Load preference setting
-  let usePreferences = true;
-  let prefsFeatureEnabled = true;
-  try {
-    const settings = await API.getSettings();
-    if (settings.usePreferences === false) usePreferences = false;
-    if (settings.employeeRankStations === false) { prefsFeatureEnabled = false; usePreferences = false; }
-  } catch (e) {}
+  const wPref = settings.autoFillWeightPreference ?? 40;
+  const wSkill = settings.autoFillWeightSkill ?? 35;
+  const wFair = settings.autoFillWeightFairness ?? 25;
+  const defaultFloaters = settings.autoFillFloaters ?? 0;
 
   const defaultTotal = stations.reduce((sum, s) => sum + (s.staff_needed || 0), 0);
   const minTotal = stations.reduce((sum, s) => sum + (s.min_staff || 1), 0);
   const maxTotal = stations.reduce((sum, s) => sum + (s.max_staff || s.staff_needed || 0), 0);
 
-  // Build list of all dates in the schedule range
+  // Schedule dates
   const scheduleDates = [];
   const startD = new Date(schedule.start_date + 'T12:00:00');
   const endD = new Date(schedule.end_date + 'T12:00:00');
@@ -357,24 +356,23 @@ async function showAutoFillModal(scheduleId) {
     scheduleDates.push(d.toISOString().split('T')[0]);
   }
 
-  UI.showModal('Auto-Fill Shifts', `
-    <p class="text-sm text-muted mb-3">Set your total crew size and stations will scale automatically.</p>
-
-    <div class="form-group">
-      <label class="form-label">Total Staff for This Day</label>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-        <input type="range" id="af-total-slider" min="${minTotal}" max="${Math.max(maxTotal, emps.length)}" value="${defaultTotal}"
-          oninput="onTotalStaffChange(this.value)" style="flex:1;accent-color:var(--purple)">
-        <input type="number" id="af-total-input" min="${minTotal}" max="${Math.max(maxTotal, emps.length)}" value="${defaultTotal}"
-          oninput="onTotalStaffChange(this.value)" style="width:60px;text-align:center;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:6px;font-size:16px;font-weight:600">
-      </div>
-      <div class="flex justify-between text-xs text-muted">
-        <span>Min: ${minTotal}</span>
-        <span>Default: ${defaultTotal}</span>
-        <span>Max: ${maxTotal}</span>
+  const pinnedHtml = pinnedList.length > 0 ? `
+    <div class="card mb-3" style="background:var(--bg-primary);padding:12px">
+      <div class="text-sm semi mb-2">📌 Pinned Employees (assigned first)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${pinnedList.map(p => `
+          <span style="background:rgba(124,58,237,.2);color:var(--purple-light);padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">
+            ${p.first_name} ${p.last_name} → ${p.station_name}
+          </span>
+        `).join('')}
       </div>
     </div>
+  ` : '';
 
+  UI.showModal('Auto-Fill Shifts', `
+    <p class="text-sm text-muted mb-3">Server-side smart scheduling with weighted scoring, availability checks, and floater pool.</p>
+
+    <!-- Dates -->
     <div class="form-group">
       <label class="form-label">Dates to Fill</label>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">
@@ -387,31 +385,83 @@ async function showAutoFillModal(scheduleId) {
       </div>
     </div>
 
+    <!-- Total Staff Slider -->
     <div class="form-group">
-      <label class="form-label">Station Breakdown <span class="text-xs text-muted">(toggle stations on/off · auto-scaled)</span></label>
-      <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px" id="af-station-list">
+      <label class="form-label">Total Staff per Day</label>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <input type="range" id="af-total-slider" min="${minTotal}" max="${Math.max(maxTotal, emps.length)}" value="${defaultTotal}"
+          oninput="onTotalStaffChange(this.value)" style="flex:1;accent-color:var(--purple)">
+        <input type="number" id="af-total-input" min="${minTotal}" max="${Math.max(maxTotal, emps.length)}" value="${defaultTotal}"
+          oninput="onTotalStaffChange(this.value)" style="width:60px;text-align:center;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:6px;font-size:16px;font-weight:600">
+      </div>
+      <div class="flex justify-between text-xs text-muted">
+        <span>Min: ${minTotal}</span><span>Default: ${defaultTotal}</span><span>Max: ${maxTotal}</span>
+      </div>
+    </div>
+
+    <!-- Station Breakdown -->
+    <div class="form-group">
+      <label class="form-label">Station Breakdown <span class="text-xs text-muted">(toggle on/off · auto-scaled)</span></label>
+      <div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px" id="af-station-list">
         ${stations.map(s => `
-          <div class="flex items-center" style="padding:6px 0;border-bottom:1px solid rgba(51,65,85,.2);gap:10px" data-station="${s.name}" data-enabled="1" data-min="${s.min_staff || 1}" data-default="${s.staff_needed || 0}" data-max="${s.max_staff || 0}" data-open="${s.open_time}" data-close="${s.close_time}">
+          <div class="flex items-center" style="padding:5px 0;border-bottom:1px solid rgba(51,65,85,.15);gap:8px" data-station="${s.name}" data-enabled="1" data-min="${s.min_staff || 1}" data-default="${s.staff_needed || 0}" data-max="${s.max_staff || 0}">
             <label style="display:flex;align-items:center;cursor:pointer;gap:6px;flex:1">
-              <input type="checkbox" class="af-station-toggle" checked
-                onchange="onStationToggle(this)"
-                style="width:16px;height:16px;accent-color:var(--purple);cursor:pointer">
-              <span class="text-sm semi af-station-label">${s.name}</span>
+              <input type="checkbox" class="af-station-toggle" checked onchange="onStationToggle(this)"
+                style="width:15px;height:15px;accent-color:var(--purple);cursor:pointer">
+              <span class="text-sm af-station-label">${s.name}</span>
             </label>
-            <span class="text-xs af-station-scaled" style="color:var(--purple-light);font-weight:600;min-width:40px;text-align:right">${s.staff_needed || 0}</span>
+            <span class="text-xs af-station-scaled" style="color:var(--purple-light);font-weight:600;min-width:32px;text-align:right">${s.staff_needed || 0}</span>
           </div>
         `).join('')}
       </div>
-      <div class="text-xs text-muted mt-1">Uncheck a station to exclude it from this auto-fill run.</div>
     </div>
 
+    ${pinnedHtml}
+
+    <!-- Scoring Weights -->
+    <div class="card mb-3" style="background:var(--bg-primary);padding:12px">
+      <div class="text-sm semi mb-2">⚖️ Scoring Weights</div>
+      <div class="text-xs text-muted mb-2">How the algorithm ranks employees for each station slot</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div>
+          <label class="text-xs text-muted" style="display:block;margin-bottom:2px">Preference</label>
+          <input type="number" id="af-w-pref" value="${wPref}" min="0" max="100"
+            style="width:100%;text-align:center;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:6px;font-size:14px;font-weight:600">
+        </div>
+        <div>
+          <label class="text-xs text-muted" style="display:block;margin-bottom:2px">Skill Rating</label>
+          <input type="number" id="af-w-skill" value="${wSkill}" min="0" max="100"
+            style="width:100%;text-align:center;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:6px;font-size:14px;font-weight:600">
+        </div>
+        <div>
+          <label class="text-xs text-muted" style="display:block;margin-bottom:2px">Fairness</label>
+          <input type="number" id="af-w-fair" value="${wFair}" min="0" max="100"
+            style="width:100%;text-align:center;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:6px;font-size:14px;font-weight:600">
+        </div>
+      </div>
+      <div class="text-xs text-muted mt-1">Values are normalized — they don't need to add up to 100</div>
+    </div>
+
+    <!-- Floater Pool -->
+    <div class="card mb-3" style="background:var(--bg-primary);padding:12px">
+      <div class="flex items-center gap-3">
+        <div style="flex:1">
+          <div class="text-sm semi">🔄 Floater Pool</div>
+          <div class="text-xs text-muted">Extra staff on deck to cover no-shows</div>
+        </div>
+        <input type="number" id="af-floaters" value="${defaultFloaters}" min="0" max="50"
+          style="width:56px;text-align:center;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:6px;font-size:16px;font-weight:600">
+      </div>
+    </div>
+
+    <!-- Summary -->
     <div id="autofill-summary" class="card" style="background:var(--bg-primary);padding:12px;margin-bottom:8px">
       <div class="flex justify-between text-sm">
         <span>Stations:</span>
         <span class="semi" id="af-station-count">${stations.length}</span>
       </div>
       <div class="flex justify-between text-sm">
-        <span>Total staff:</span>
+        <span>Total staff/day:</span>
         <span class="semi text-purple" id="af-staff-count">${defaultTotal}</span>
       </div>
       <div class="flex justify-between text-sm">
@@ -420,28 +470,16 @@ async function showAutoFillModal(scheduleId) {
       </div>
     </div>
 
-    ${prefsFeatureEnabled ? `<div class="card mb-3" style="background:var(--bg-primary);padding:12px">
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <input type="checkbox" id="af-use-prefs" ${usePreferences ? 'checked' : ''}
-          onchange="togglePreferenceMatching(this.checked)"
-          style="width:18px;height:18px;accent-color:var(--purple)">
-        <div>
-          <div class="text-sm semi">Use Employee Preferences</div>
-          <div class="text-xs text-muted">Prioritize stations employees ranked higher when assigning</div>
-        </div>
-      </label>
-    </div>` : ''}
-
-    <p class="text-xs text-muted">Employees are scored by training + preference rank. You can adjust assignments after generating.</p>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px">
+      <input type="checkbox" id="af-skip-existing" checked style="width:15px;height:15px;accent-color:var(--purple)">
+      <span class="text-xs text-muted">Skip employees already assigned in this schedule</span>
+    </label>
   `, `
     <button class="btn btn-primary" onclick="executeAutoFill(${scheduleId})">Generate Shifts</button>
     <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
   `);
 
-  // Store for use in execute
   window._autoFillStations = stations;
-
-  // Initialize scaled values
   onTotalStaffChange(defaultTotal);
 }
 
@@ -449,30 +487,25 @@ function onStationToggle(cb) {
   const row = cb.closest('[data-station]');
   if (!row) return;
   row.dataset.enabled = cb.checked ? '1' : '0';
-  // Dim disabled rows so the state is obvious
   row.style.opacity = cb.checked ? '1' : '0.45';
   const label = row.querySelector('.af-station-scaled');
   if (label && !cb.checked) label.textContent = '—';
-  // Re-scale staff across remaining stations
   const input = document.getElementById('af-total-input');
   onTotalStaffChange(input ? input.value : 0);
 }
 
 function onTotalStaffChange(val) {
   const total = parseInt(val) || 0;
-  // Sync slider and input
   const slider = document.getElementById('af-total-slider');
   const input = document.getElementById('af-total-input');
   if (slider && slider.value != total) slider.value = total;
   if (input && input.value != total) input.value = total;
 
-  // Proportionally scale stations (only enabled ones)
   const rows = document.querySelectorAll('#af-station-list [data-station]');
   const defaults = [];
   let defaultSum = 0;
   rows.forEach(row => {
-    const enabled = row.dataset.enabled !== '0';
-    if (!enabled) return;
+    if (row.dataset.enabled === '0') return;
     const def = parseInt(row.dataset.default) || 1;
     const min = parseInt(row.dataset.min) || 1;
     const max = parseInt(row.dataset.max) || def;
@@ -480,30 +513,23 @@ function onTotalStaffChange(val) {
     defaultSum += def;
   });
 
-  // Scale each enabled station proportionally, clamped to min/max
   const scaled = defaults.map(d => {
     let n = Math.round((d.def / (defaultSum || 1)) * total);
-    n = Math.max(d.min, Math.min(d.max, n));
-    return n;
+    return Math.max(d.min, Math.min(d.max, n));
   });
-  // Adjust rounding to hit exact total
   let diff = total - scaled.reduce((s, n) => s + n, 0);
   for (let i = 0; diff !== 0 && i < scaled.length; i++) {
     if (diff > 0 && scaled[i] < defaults[i].max) { scaled[i]++; diff--; }
     else if (diff < 0 && scaled[i] > defaults[i].min) { scaled[i]--; diff++; }
   }
 
-  // Apply scaled values to enabled rows; disabled rows stay at 0
   defaults.forEach((d, i) => {
     const label = d.row.querySelector('.af-station-scaled');
     if (label) label.textContent = scaled[i];
     d.row.dataset.scaled = scaled[i];
   });
-  rows.forEach(row => {
-    if (row.dataset.enabled === '0') row.dataset.scaled = '0';
-  });
+  rows.forEach(row => { if (row.dataset.enabled === '0') row.dataset.scaled = '0'; });
 
-  // Update summary
   document.getElementById('af-staff-count').textContent = total;
   const empCount = (window._scheduleEmployees || []).filter(e => e.role !== 'admin' && e.role !== 'lead').length;
   const availEl = document.getElementById('af-avail-count');
@@ -513,7 +539,6 @@ function onTotalStaffChange(val) {
   }
 }
 
-// Keep backward compat — old code might call this
 function updateAutoFillSummary() { onTotalStaffChange(document.getElementById('af-total-input')?.value || 0); }
 
 async function executeAutoFill(scheduleId) {
@@ -521,121 +546,63 @@ async function executeAutoFill(scheduleId) {
   const dates = Array.from(dateCbs).map(cb => cb.value);
   if (dates.length === 0) { UI.toast('Select at least one date', 'error'); return; }
 
-  // Exclude admins/leads
-  const emps = (window._scheduleEmployees || []).filter(e => e.role !== 'admin' && e.role !== 'lead');
-  if (emps.length === 0) { UI.toast('No employees available', 'error'); return; }
-
-  const stationRows = document.querySelectorAll('#af-station-list [data-station]');
-  if (stationRows.length === 0) { UI.toast('No stations found', 'error'); return; }
-
-  // Load business settings to check if preference matching is enabled
-  let usePreferences = true; // default ON
-  try {
-    const settings = await API.getSettings();
-    if (settings.usePreferences === false) usePreferences = false;
-  } catch (e) { /* settings not set yet, default to true */ }
-
-  // Load station skill + preference data for each station
-  // stationSkillMap: stationName -> [{ id, rank, preferred }]
-  let stationSkillMap = {};
-  const allStations = window._autoFillStations || [];
-  try {
-    for (const s of allStations) {
-      const trained = await API.getEmployeesByStation(s.id);
-      if (trained.length > 0) {
-        stationSkillMap[s.name] = trained.map(t => ({
-          id: t.id,
-          rank: t.rank || 0,
-          preferred: t.preferred || false,
-        }));
-      }
-    }
-  } catch (e) { /* skills not set up yet, fall back to round-robin */ }
-
-  // Score an employee for a station (higher = better fit)
-  function scoreEmployee(emp, stationName) {
-    const trained = stationSkillMap[stationName] || [];
-    const match = trained.find(t => t.id === emp.id);
-    if (!match) return 0; // not trained for this station
-
-    let score = 10; // base score for being trained
-    if (usePreferences && match.rank > 0) {
-      // rank 1 = +100, rank 2 = +75, rank 3 = +50, rank 4+ = +25
-      if (match.rank === 1) score += 100;
-      else if (match.rank === 2) score += 75;
-      else if (match.rank === 3) score += 50;
-      else score += 25;
-    }
-    if (match.preferred) score += 15;
-    return score;
-  }
-
-  // Collect station requests with scaled staff counts (skip disabled stations)
-  const stationRequests = [];
-  stationRows.forEach(row => {
-    if (row.dataset.enabled === '0') return;
-    const scaled = parseInt(row.dataset.scaled) || parseInt(row.dataset.default) || 1;
-    if (scaled > 0) {
-      stationRequests.push({
-        name: row.dataset.station,
-        needed: scaled,
-        openTime: row.dataset.open || '09:00',
-        closeTime: row.dataset.close || '17:00',
-      });
+  // Collect station overrides
+  const stationOverrides = {};
+  document.querySelectorAll('#af-station-list [data-station]').forEach(row => {
+    if (row.dataset.enabled === '0') {
+      stationOverrides[row.dataset.station] = 0; // explicitly disabled
+    } else {
+      const scaled = parseInt(row.dataset.scaled);
+      if (!isNaN(scaled)) stationOverrides[row.dataset.station] = scaled;
     }
   });
-  if (stationRequests.length === 0) {
-    UI.toast('Enable at least one station', 'error');
-    return;
-  }
 
-  // Build shifts for EACH selected date
-  const shifts = [];
-  for (const date of dates) {
-    const usedEmployees = new Set();
-    let empIndex = 0;
+  const totalStaff = parseInt(document.getElementById('af-total-input')?.value) || 0;
+  const floaterCount = parseInt(document.getElementById('af-floaters')?.value) || 0;
+  const skipExisting = document.getElementById('af-skip-existing')?.checked !== false;
 
-    stationRequests.forEach(station => {
-      let assigned = 0;
+  const weights = {
+    preference: parseInt(document.getElementById('af-w-pref')?.value) || 0,
+    skill: parseInt(document.getElementById('af-w-skill')?.value) || 0,
+    fairness: parseInt(document.getElementById('af-w-fair')?.value) || 0,
+  };
 
-      const scored = emps
-        .filter(e => !usedEmployees.has(e.id))
-        .map(e => ({ emp: e, score: scoreEmployee(e, station.name) }))
-        .sort((a, b) => b.score - a.score);
-
-      for (const { emp, score } of scored) {
-        if (assigned >= station.needed) break;
-        if (score > 0 && !usedEmployees.has(emp.id)) {
-          shifts.push({ employeeId: emp.id, date, startTime: station.openTime, endTime: station.closeTime, station: station.name });
-          usedEmployees.add(emp.id);
-          assigned++;
-        }
-      }
-
-      while (assigned < station.needed && emps.length > 0) {
-        const emp = emps[empIndex % emps.length];
-        empIndex++;
-        if (empIndex > emps.length * 2) break;
-        if (!usedEmployees.has(emp.id)) {
-          shifts.push({ employeeId: emp.id, date, startTime: station.openTime, endTime: station.closeTime, station: station.name });
-          usedEmployees.add(emp.id);
-          assigned++;
-        }
-      }
-    });
-  }
+  // Show loading state
+  const btn = document.querySelector('.modal-footer .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
 
   try {
-    await API.addShifts(scheduleId, shifts);
+    const result = await API.autoFill(scheduleId, {
+      dates,
+      stationOverrides,
+      totalStaff,
+      floaterCount,
+      skipExisting,
+      weights,
+    });
+
     UI.closeModal();
-    const prefCount = usePreferences ? Object.values(stationSkillMap).reduce((sum, arr) => sum + arr.filter(t => t.rank > 0).length, 0) : 0;
-    let msg = `Generated ${shifts.length} shifts across ${stationRequests.length} stations, ${dates.length} day${dates.length > 1 ? 's' : ''}!`;
-    if (prefCount > 0) msg = `Generated ${shifts.length} shifts across ${dates.length} day${dates.length > 1 ? 's' : ''} (preference-matched)!`;
-    else if (Object.keys(stationSkillMap).length > 0) msg = `Generated ${shifts.length} shifts across ${dates.length} day${dates.length > 1 ? 's' : ''} (skill-matched)!`;
+
+    // Build result summary
+    const s = result.stats;
+    let msg = `✅ ${s.totalShifts} shifts across ${s.stations} stations, ${s.dates} day${s.dates > 1 ? 's' : ''}`;
+    if (s.floaters > 0) msg += ` + ${s.floaters} floaters`;
+    if (s.gaps.length > 0) msg += ` ⚠️ ${s.gaps.length} gap${s.gaps.length > 1 ? 's' : ''}`;
+
     UI.toast(msg);
+
+    // Show gaps detail if any
+    if (s.gaps.length > 0) {
+      setTimeout(() => {
+        const gapDetail = s.gaps.map(g => `${g.station} on ${g.date}: short ${g.short}`).join('\n');
+        UI.toast(`Coverage gaps:\n${gapDetail}`, 'error');
+      }, 2000);
+    }
+
     renderScheduleDetail(document.getElementById('app'), { id: scheduleId });
   } catch (err) {
     UI.toast(err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Generate Shifts'; }
   }
 }
 

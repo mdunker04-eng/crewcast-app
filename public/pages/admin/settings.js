@@ -121,7 +121,7 @@ function renderSettingsSections() {
       ${settingsNumber('maxConsecutiveDays', 'Max consecutive workdays', 1, 14, 6)}
     </div>
 
-    <!-- 5. Employee Preferences -->
+    <!-- 5. Employee Preferences & Auto-Fill Weights -->
     <div class="card mb-4" id="settings-sec-5">
       <div class="card-title mb-3">⭐ Employee Preferences & Availability</div>
       ${settingsToggle('employeeSetAvailability', 'Employees can set their own availability', true)}
@@ -130,6 +130,15 @@ function renderSettingsSections() {
       ${settingsToggle('fairnessRotation', 'Fairness rotation (spread top picks across employees)')}
       ${settingsToggle('employeeRequestDaysOff', 'Employees can request specific days off')}
       ${settingsNumber('availChangeNotice', 'Min notice for availability changes (days)', 0, 14, 1)}
+
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <div class="text-sm semi mb-2">⚖️ Auto-Fill Scoring Weights (defaults)</div>
+        <p class="text-xs text-muted mb-2">Controls how the auto-fill algorithm ranks employees for each station. These are the defaults shown in the auto-fill modal — you can also adjust per run.</p>
+        ${settingsNumber('autoFillWeightPreference', 'Preference weight (employee wants this station)', 0, 100, 40)}
+        ${settingsNumber('autoFillWeightSkill', 'Skill weight (how good they are at this station)', 0, 100, 35)}
+        ${settingsNumber('autoFillWeightFairness', 'Fairness weight (spread hours evenly)', 0, 100, 25)}
+        ${settingsNumber('autoFillFloaters', 'Default floater count per day', 0, 50, 0)}
+      </div>
     </div>
 
     <!-- 6. Shift Swaps -->

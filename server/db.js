@@ -266,6 +266,11 @@ async function initDB() {
       await client.query('ALTER TABLE employee_stations ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT NULL');
     } catch (e) { console.log('station rating col note:', e.message); }
 
+    // Migration: pinned flag on employee_stations (admin locks employee to this station in auto-fill)
+    try {
+      await client.query('ALTER TABLE employee_stations ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT false');
+    } catch (e) { console.log('pinned col note:', e.message); }
+
     // Migration: add rating column to employees
     try {
       await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT NULL');
