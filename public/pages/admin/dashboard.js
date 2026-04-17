@@ -80,6 +80,9 @@ async function renderAdminDashboard(app) {
           <button class="btn btn-secondary btn-block" onclick="Router.navigate('/admin/employees')">
             ${SVG.users} Manage Employees
           </button>
+          <button class="btn btn-secondary btn-block" onclick="Router.navigate('/admin/onboarding')">
+            📲 Employee Onboarding
+          </button>
           <button class="btn btn-secondary btn-block" onclick="showNotifyModal()">
             ${SVG.send} Send Notification
           </button>

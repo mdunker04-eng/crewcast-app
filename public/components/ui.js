@@ -116,6 +116,7 @@ const UI = {
       { id: 'dashboard', icon: SVG.grid, label: 'Dashboard', path: '/admin' },
       { id: 'stations', icon: SVG.station, label: 'Stations', path: '/admin/stations' },
       { id: 'employees', icon: SVG.users, label: 'Employees', path: '/admin/employees' },
+      { id: 'onboarding', icon: '📲', label: 'Onboarding', path: '/admin/onboarding' },
       { id: 'settings', icon: '⚙️', label: 'Settings', path: '/admin/settings' },
       { section: 'Schedule' },
       { id: 'demo-dashboard', icon: '📊', label: 'Schedule Overview', path: '/admin/demo/dashboard' },

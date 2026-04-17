@@ -224,6 +224,49 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// ── POST /api/auth/join-lookup ──
+// QR join page: employee enters phone → find them, return invite token
+router.post('/join-lookup', async (req, res) => {
+  try {
+    const { phone, businessSlug } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Phone number required' });
+
+    const digits = phone.replace(/\D/g, '').slice(-10);
+    if (digits.length !== 10) return res.status(400).json({ error: 'Enter a valid 10-digit phone number' });
+
+    let query = `
+      SELECT e.id, e.first_name, e.last_name, e.phone, e.pin_hash, e.invite_token
+      FROM employees e
+      JOIN businesses b ON e.business_id = b.id
+      WHERE e.active = true
+    `;
+    const params = [];
+    if (businessSlug) {
+      params.push(businessSlug);
+      query += ` AND b.slug = $${params.length}`;
+    }
+
+    const { rows } = await pool.query(query, params);
+    const employee = rows.find(e => e.phone.replace(/\D/g, '').slice(-10) === digits);
+
+    if (!employee) {
+      return res.status(404).json({ error: 'Phone number not found. Check with your manager that you\'ve been added to the system.' });
+    }
+
+    if (employee.pin_hash) {
+      return res.json({ alreadySetUp: true });
+    }
+
+    res.json({
+      firstName: employee.first_name,
+      inviteToken: employee.invite_token,
+    });
+  } catch (err) {
+    console.error('Join lookup error:', err);
+    res.status(500).json({ error: 'Lookup failed' });
+  }
+});
+
 // ── GET /api/auth/me ──
 // Get current user info
 router.get('/me', authenticate, (req, res) => {

@@ -9,6 +9,8 @@
 Router.add('/login', (app) => renderLogin(app));
 Router.add('/signup', (app) => renderOnboard(app));
 Router.add('/invite/:token', (app, params) => renderSetup(app, params));
+Router.add('/join/:slug', (app, params) => renderJoin(app, params));
+Router.add('/join', (app) => renderJoin(app, {}));
 
 // Employee routes
 Router.add('/welcome', (app) => {
@@ -121,6 +123,11 @@ Router.add('/admin/wiw-reconcile', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderWiwReconcile(app);
+});
+Router.add('/admin/onboarding', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderOnboarding(app);
 });
 
 // Demo feature views (all require admin)

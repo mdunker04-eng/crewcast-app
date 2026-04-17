@@ -118,6 +118,17 @@ const API = {
   getMyStationPrefs: () => API.get('/api/employees/me/station-preferences'),
   setMyStationPrefs: (stations) => API.put('/api/employees/me/station-preferences', { stations }),
 
+  // ── SMS & Onboarding ──
+  getSmsStatus: () => API.get('/api/sms/status'),
+  sendInviteSms: (employeeId) => API.post('/api/sms/send-invite', { employeeId }),
+  sendBulkInvites: () => API.post('/api/sms/send-bulk-invites', {}),
+  smsNotify: (employeeIds, message) => API.post('/api/sms/notify', { employeeIds, message }),
+  getOnboardStats: () => API.get('/api/sms/onboard-stats'),
+  downloadInviteCsv: () => {
+    return fetch('/api/sms/invite-csv', { headers: { 'Authorization': 'Bearer ' + API.token } })
+      .then(r => r.blob());
+  },
+
   // ── Business Settings ──
   getSettings: () => API.get('/api/stations/settings'),
   updateSettings: (data) => API.put('/api/stations/settings', data),
