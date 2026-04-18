@@ -129,6 +129,8 @@ Router.add('/admin/onboarding', (app) => {
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderOnboarding(app);
 });
+// Legacy alias — old links in docs pointed at /admin/cg-onboard.
+Router.add('/admin/cg-onboard', (app) => Router.navigate('/admin/onboarding', true));
 
 // Demo feature views (all require admin)
 const demoRoutes = [

@@ -2,6 +2,14 @@
 // CrewCast — API Client
 // ═══════════════════════════════════════════════════════
 
+// One-time cleanup: wipe any legacy auth keys from old code paths.
+// These caused 403s when the legacy (employee) token was sent instead
+// of the current admin token. Safe to run on every page load.
+try {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+} catch (_) { /* ignore */ }
+
 const API = {
   token: localStorage.getItem('crewcast_token'),
   user: JSON.parse(localStorage.getItem('crewcast_user') || 'null'),
@@ -9,6 +17,11 @@ const API = {
   setAuth(token, user) {
     this.token = token;
     this.user = user;
+    // Belt-and-suspenders: clear any lingering legacy keys every login.
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    } catch (_) { /* ignore */ }
     localStorage.setItem('crewcast_token', token);
     localStorage.setItem('crewcast_user', JSON.stringify(user));
   },

@@ -35,14 +35,36 @@ const Router = {
       }
     }
 
-    // 404
-    app.innerHTML = `
+    // 404 — render INSIDE the appropriate shell so the user isn't dead-ended
+    // (sidebar disappearing made missed-route bugs look worse than they were).
+    this.currentPage = null;
+    const notFoundBody = `
       <div class="page" style="text-align:center;padding-top:60px">
         <h1>Page Not Found</h1>
         <p class="subtitle">The page you're looking for doesn't exist.</p>
-        <button class="btn btn-primary mt-3" onclick="Router.navigate('/')">Go Home</button>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px">
+          <button class="btn btn-secondary" onclick="history.back()">← Go Back</button>
+          <button class="btn btn-primary" onclick="Router.navigate('/')">Go Home</button>
+        </div>
       </div>
     `;
+
+    // Keep the logged-in user inside their shell so sidebar / bottom-nav remain.
+    try {
+      if (typeof API !== 'undefined' && API.isLoggedIn && API.isLoggedIn() && typeof UI !== 'undefined') {
+        if (API.isAdmin && API.isAdmin() && typeof UI.adminShell === 'function') {
+          app.innerHTML = UI.adminShell(null, notFoundBody);
+          return;
+        }
+        // Employee view: bottom-nav wrapper (fallback to plain if not available)
+        if (typeof UI.employeeNav === 'function') {
+          app.innerHTML = `${notFoundBody}${UI.employeeNav(null)}`;
+          return;
+        }
+      }
+    } catch (_) { /* fall through to plain */ }
+
+    app.innerHTML = notFoundBody;
   },
 
   matchPath(pattern, path) {

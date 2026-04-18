@@ -28,7 +28,10 @@ async function renderOnboarding(app) {
     const slug = API.user?.businessSlug || '';
     const joinUrl = `${location.origin}/join/${slug}`;
 
-    const pendingEmps = employees.filter(e => !e.hasPin && e.role !== 'admin');
+    // Single source of truth: active non-admin employees without a PIN.
+    // (Previously missed the `active` filter, which made the list count
+    // disagree with the stats card and the dashboard headcount.)
+    const pendingEmps = employees.filter(e => e.active && !e.hasPin && e.role !== 'admin');
 
     document.getElementById('onboard-content').innerHTML = `
       <!-- Progress Bar -->

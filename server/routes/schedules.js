@@ -207,6 +207,26 @@ router.post('/:id/shifts', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ── DELETE /api/schedules/:scheduleId/shifts/:shiftId ──
+// Remove a single shift (admin). Scoped to the caller's business.
+router.delete('/:scheduleId/shifts/:shiftId', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(`
+      DELETE FROM shifts sh
+      USING schedules s
+      WHERE sh.id = $1
+        AND sh.schedule_id = s.id
+        AND s.id = $2
+        AND s.business_id = $3
+    `, [req.params.shiftId, req.params.scheduleId, req.user.businessId]);
+    if (rowCount === 0) return res.status(404).json({ error: 'Shift not found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete shift error:', err);
+    res.status(500).json({ error: 'Failed to delete shift' });
+  }
+});
+
 // ── PUT /api/shifts/:id/respond ──
 // Employee confirms or declines a shift
 router.put('/:scheduleId/shifts/:shiftId/respond', authenticate, async (req, res) => {

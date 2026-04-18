@@ -417,6 +417,54 @@ async function initDB() {
     } catch (ratingErr) {
       console.log('Rating backfill skipped:', ratingErr.message);
     }
+
+    // Migration: is_demo flag on employees for easy purge of seed/demo data
+    // before real pilot onboarding. Backfills the 200 seed workers we added
+    // (phone prefix "(515) 555-3" and "(515) 555-xxxx" placeholders).
+    try {
+      await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_demo BOOLEAN DEFAULT false');
+      // Backfill: any phone starting with (515) 555- is demo data
+      const { rowCount } = await client.query(`
+        UPDATE employees
+        SET is_demo = true
+        WHERE is_demo = false
+          AND phone LIKE '(515) 555-%'
+      `);
+      if (rowCount > 0) console.log(`Tagged ${rowCount} demo employees via is_demo flag`);
+    } catch (demoErr) {
+      console.log('is_demo migration note:', demoErr.message);
+    }
+
+    // Migration: prevent double-booking the same employee on the same day/time/station.
+    // Partial index so unassigned shift slots (employee_id IS NULL) are not constrained.
+    // First dedupe existing duplicates before attempting the index (otherwise CREATE fails).
+    try {
+      const { rowCount: dupCount } = await client.query(`
+        DELETE FROM shifts
+        WHERE id IN (
+          SELECT id FROM (
+            SELECT id,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY schedule_id, employee_id, date, start_time, station
+                     ORDER BY id
+                   ) AS rn
+            FROM shifts
+            WHERE employee_id IS NOT NULL
+          ) t
+          WHERE t.rn > 1
+        )
+      `);
+      if (dupCount > 0) console.log(`Deduped ${dupCount} duplicate shift rows`);
+
+      await client.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS shifts_unique_assignment_idx
+        ON shifts (schedule_id, employee_id, date, start_time, station)
+        WHERE employee_id IS NOT NULL
+      `);
+      console.log('Shifts unique-assignment index ready');
+    } catch (uniqErr) {
+      console.log('Shifts unique index note:', uniqErr.message);
+    }
   } finally {
     client.release();
   }
