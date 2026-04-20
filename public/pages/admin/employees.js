@@ -79,6 +79,7 @@ async function renderAdminEmployees(app) {
 
     const active = employees.filter(e => e.active);
     const inactive = employees.filter(e => !e.active);
+    const missingPhone = active.filter(e => !e.phone || String(e.phone).replace(/\D/g, '').length < 10);
 
     // Fetch station assignments, categories, and ratings in parallel
     const stationData = {};
@@ -104,6 +105,15 @@ async function renderAdminEmployees(app) {
         </div>
       </div>
 
+      ${missingPhone.length > 0 ? `
+      <div class="card" style="margin-bottom:12px;border:1px solid rgba(248,113,113,.4);background:rgba(248,113,113,.08);padding:10px 14px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:18px">⚠️</span>
+          <span class="semi" style="color:#F87171">${missingPhone.length} employee${missingPhone.length === 1 ? '' : 's'} missing a phone number</span>
+          <span class="text-xs text-muted">— they can't log in until you add one.</span>
+        </div>
+      </div>` : ''}
+
       ${categories.length > 0 ? `
       <div style="display:flex;flex-wrap:wrap;gap:8px 16px;padding:8px 12px;margin-bottom:8px;font-size:11px;color:var(--text-muted);background:rgba(30,41,59,.4);border-radius:8px;border:1px solid rgba(51,65,85,.3)">
         <span style="font-weight:600;color:var(--text-secondary)">Rating Key:</span>
@@ -116,16 +126,18 @@ async function renderAdminEmployees(app) {
           const empRatings = allRatings[e.id] || [];
           const ratingMap = {};
           empRatings.forEach(r => { ratingMap[r.category_id] = r.rating; });
+          const noPhone = !e.phone || String(e.phone).replace(/\D/g, '').length < 10;
 
           return `
-          <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px;padding:12px 16px">
+          <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px;padding:12px 16px;${noPhone ? 'border-left:3px solid #F87171;background:rgba(248,113,113,.04)' : ''}">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div>
                 <div class="flex items-center gap-2">
                   <div class="semi">${e.firstName} ${e.lastName}</div>
                   ${e.role === 'admin' || e.role === 'lead' ? `<span class="badge" style="font-size:10px;padding:2px 6px;background:var(--purple);color:white">${e.role.charAt(0).toUpperCase() + e.role.slice(1)}</span>` : ''}
+                  ${noPhone ? `<span class="badge" style="font-size:10px;padding:2px 6px;background:rgba(248,113,113,.15);color:#F87171;border:1px solid rgba(248,113,113,.4)">⚠ No phone</span>` : ''}
                 </div>
-                <div class="text-xs text-muted" style="margin-top:1px">${formatPhoneNumber(e.phone)}${empStations.length > 0 ? ` · ${empStations.length} station${empStations.length !== 1 ? 's' : ''}` : ''}</div>
+                <div class="text-xs ${noPhone ? '' : 'text-muted'}" style="margin-top:1px${noPhone ? ';color:#F87171' : ''}">${noPhone ? 'Add a phone number so this employee can log in' : formatPhoneNumber(e.phone)}${empStations.length > 0 ? ` · ${empStations.length} station${empStations.length !== 1 ? 's' : ''}` : ''}</div>
               </div>
               <div class="flex items-center gap-2">
                 ${e.hasPin ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Invited</span>'}
