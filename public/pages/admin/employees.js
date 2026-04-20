@@ -624,6 +624,15 @@ function autoDetectMapping(rows) {
       const colValues = rows.map(r => r[i] || '');
       mapping[i] = detectDataType(colValues);
     }
+    // Post-pass: if headerless detection tagged two columns as firstName
+    // (common when the file has separate First / Last name columns of plain words),
+    // promote the SECOND firstName column to lastName so the name survives.
+    const firstNameCols = Object.keys(mapping).filter(k => mapping[k] === 'firstName');
+    const hasLastName = Object.values(mapping).includes('lastName');
+    const hasFullName = Object.values(mapping).includes('fullName');
+    if (firstNameCols.length >= 2 && !hasLastName && !hasFullName) {
+      mapping[firstNameCols[1]] = 'lastName';
+    }
   }
   return { mapping, hasHeader: isHeader };
 }

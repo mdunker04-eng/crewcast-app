@@ -163,12 +163,15 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
     }
 
     const client = await pool.connect();
-    const results = { added: 0, skipped: 0 };
+    const results = { added: 0, skipped: 0, failed: 0, errors: [] };
 
     try {
       await client.query('BEGIN');
       for (const emp of empList) {
         const token = crypto.randomBytes(16).toString('hex');
+        // Use a SAVEPOINT so a single bad row (missing phone, bad data, etc.)
+        // doesn't abort the whole batch.
+        await client.query('SAVEPOINT sp_emp');
         try {
           await client.query(`
             INSERT INTO employees (business_id, first_name, last_name, phone, role, skills, invite_token)
@@ -182,12 +185,19 @@ router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
             JSON.stringify(emp.skills || {}),
             token
           ]);
+          await client.query('RELEASE SAVEPOINT sp_emp');
           results.added++;
         } catch (e) {
+          await client.query('ROLLBACK TO SAVEPOINT sp_emp');
           if (e.code === '23505') {
             results.skipped++; // duplicate, skip
           } else {
-            throw e;
+            results.failed++;
+            results.errors.push({
+              name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || '(unnamed)',
+              phone: emp.phone || '(no phone)',
+              reason: e.message || 'unknown error',
+            });
           }
         }
       }
