@@ -50,6 +50,10 @@ router.post('/webhook', async (req, res) => {
       console.warn('[sms/webhook] TWILIO_AUTH_TOKEN not set — rejecting');
       return res.status(403).send('Forbidden');
     }
+    if (!sig) {
+      console.warn('[sms/webhook] Missing X-Twilio-Signature — rejecting');
+      return res.status(403).send('Forbidden');
+    }
 
     const isValid = twilio.validateRequest(
       process.env.TWILIO_AUTH_TOKEN, sig, url, req.body || {}
