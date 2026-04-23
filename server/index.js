@@ -54,6 +54,14 @@ app.get('/demo', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'demo.html'));
 });
 
+// ── Privacy Policy & Terms (static pages for SMS carrier compliance) ──
+app.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'privacy.html'));
+});
+app.get('/terms', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'terms.html'));
+});
+
 // ── Invite link handler ──
 // Serves the frontend, which reads the invite token from the URL
 app.get('/invite/:token', (req, res) => {
