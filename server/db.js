@@ -223,9 +223,11 @@ async function initDB() {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_runs_unique ON campaign_runs (campaign_id, step_index, employee_id);
 
       -- Messages (unified inbox: SMS + push, inbound + outbound)
+      -- business_id is nullable because inbound SMS from unknown numbers
+      -- (not matching any employee) still need to be persisted for auditing.
       CREATE TABLE IF NOT EXISTS messages (
         id SERIAL PRIMARY KEY,
-        business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        business_id INTEGER REFERENCES businesses(id) ON DELETE CASCADE,
         employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
         direction VARCHAR(10) NOT NULL,
         channel VARCHAR(10) NOT NULL,
@@ -251,6 +253,11 @@ async function initDB() {
         ADD COLUMN IF NOT EXISTS sms_opt_out BOOLEAN DEFAULT false;
       ALTER TABLE employees
         ADD COLUMN IF NOT EXISTS sms_opt_out_at TIMESTAMPTZ;
+
+      -- Migration: drop NOT NULL on messages.business_id for older deploys
+      -- (inbound SMS from unknown numbers must still be persistable).
+      ALTER TABLE messages
+        ALTER COLUMN business_id DROP NOT NULL;
     `);
 
     // ── Time Tracking tables (separated from main schema to safely handle
