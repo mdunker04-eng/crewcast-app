@@ -1,62 +1,64 @@
 // ═══════════════════════════════════════════════════════
-// CrewCast — Invite Setup Page
-// First-time PIN setup for new employees
+// CrewCast — Invite Setup Page (legacy /invite/:token)
+// Now PIN-less. Consumes the invite token directly → session.
+// New primary path is /join/:slug (phone lookup), but legacy SMS
+// invite links still point here.
 // ═══════════════════════════════════════════════════════
 
-function renderSetup(app, params) {
+async function renderSetup(app, params) {
   const token = params.token;
 
   app.innerHTML = `
     <div class="login-page">
       <div class="login-logo">CrewCast</div>
-      <div class="login-sub">Set up your account</div>
-      <div class="login-box">
-        <div class="card">
-          <p class="text-sm mb-3">Welcome! Create a 4-6 digit PIN to access your schedule. You'll use your phone number and this PIN to sign in.</p>
+      <div class="login-sub">Setting up your account…</div>
+      <div class="login-box" id="setup-box">
+        <div class="card" style="text-align:center;padding:20px">
+          <div style="font-size:36px;margin-bottom:10px">👋</div>
+          <div class="semi" style="font-size:15px;margin-bottom:4px">One moment…</div>
+          <p class="text-xs text-muted">Getting your account ready.</p>
         </div>
-        <div class="form-group">
-          <label class="form-label">Create Your PIN (4-6 digits)</label>
-          <input type="password" id="setup-pin" class="form-input pin-input" placeholder="----" maxlength="6" inputmode="numeric">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Confirm PIN</label>
-          <input type="password" id="setup-pin-confirm" class="form-input pin-input" placeholder="----" maxlength="6" inputmode="numeric">
-        </div>
-        <button id="setup-btn" class="btn btn-primary btn-block" onclick="handleSetup('${token}')">Set Up My Account</button>
       </div>
     </div>
   `;
 
-  document.getElementById('setup-pin-confirm').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleSetup(token);
-  });
-}
-
-async function handleSetup(inviteToken) {
-  const pin = document.getElementById('setup-pin').value;
-  const pinConfirm = document.getElementById('setup-pin-confirm').value;
-  const btn = document.getElementById('setup-btn');
-
-  if (!pin || pin.length < 4) {
-    UI.toast('PIN must be at least 4 digits', 'error');
+  if (!token) {
+    showSetupError('That link looks invalid. Ask your manager to resend.');
     return;
   }
-  if (pin !== pinConfirm) {
-    UI.toast('PINs don\'t match', 'error');
-    return;
-  }
-
-  btn.textContent = 'Setting up...';
-  btn.disabled = true;
 
   try {
-    const data = await API.setup(inviteToken, pin);
+    const data = await API.setup(token); // no PIN
     API.setAuth(data.token, data.user);
-    UI.toast(`Welcome, ${data.user.firstName}! You're all set.`);
-    Router.navigate('/', true);
+
+    try { API.features = await API.getFeatures(); } catch (e) { API.features = {}; }
+
+    document.getElementById('setup-box').innerHTML = `
+      <div style="text-align:center;padding:20px 0">
+        <div style="font-size:48px;margin-bottom:12px">🎉</div>
+        <div class="semi" style="font-size:18px;margin-bottom:8px">You're all set, ${data.user.firstName}!</div>
+        <p class="text-sm text-muted mb-3">Your account is ready.</p>
+        <button class="btn btn-primary btn-block"
+          onclick="Router.navigate('/', true)">Go to My Dashboard</button>
+        <div class="card" style="margin-top:16px;text-align:left">
+          <div class="semi text-xs mb-1">📲 Install the App</div>
+          <p class="text-xs text-muted">For the best experience, add CrewCast to your home screen. Tap the share button, then "Add to Home Screen".</p>
+        </div>
+      </div>
+    `;
   } catch (err) {
-    UI.toast(err.message, 'error');
-    btn.textContent = 'Set Up My Account';
-    btn.disabled = false;
+    showSetupError(err.message || 'Setup failed.');
   }
+}
+
+function showSetupError(message) {
+  document.getElementById('setup-box').innerHTML = `
+    <div class="card" style="text-align:center;padding:20px">
+      <div style="font-size:36px;margin-bottom:10px">⚠️</div>
+      <div class="semi" style="font-size:15px;margin-bottom:8px">Invite link issue</div>
+      <p class="text-sm text-muted mb-3">${message}</p>
+      <button class="btn btn-primary btn-block"
+        onclick="Router.navigate('/login')">Go to Sign In</button>
+    </div>
+  `;
 }

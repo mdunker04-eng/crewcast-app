@@ -30,6 +30,106 @@ router.get('/status', authenticate, requireAdmin, (req, res) => {
   res.json({ configured });
 });
 
+// ─────────────────────────────────────────────────────────────
+// POST /api/sms/webhook  — Twilio inbound SMS
+// ─────────────────────────────────────────────────────────────
+// Un-authenticated (Twilio can't send a bearer token) but every request is
+// validated via Twilio's signature header. STOP / UNSUBSCRIBE keywords are
+// honored per TCPA. Matching inbound → employee is by last-10-digits phone.
+const STOP_KEYWORDS = new Set(['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']);
+const START_KEYWORDS = new Set(['START', 'UNSTOP', 'YES']);
+
+router.post('/webhook', async (req, res) => {
+  try {
+    const twilio = require('twilio');
+    const sig = req.headers['x-twilio-signature'];
+    const baseUrl = process.env.BASE_URL || `https://${req.headers.host}`;
+    const url = `${baseUrl}/api/sms/webhook`;
+
+    if (!process.env.TWILIO_AUTH_TOKEN) {
+      console.warn('[sms/webhook] TWILIO_AUTH_TOKEN not set — rejecting');
+      return res.status(403).send('Forbidden');
+    }
+
+    const isValid = twilio.validateRequest(
+      process.env.TWILIO_AUTH_TOKEN, sig, url, req.body || {}
+    );
+    if (!isValid) {
+      console.warn('[sms/webhook] Invalid signature from', req.ip);
+      return res.status(403).send('Forbidden');
+    }
+
+    const { From: from, Body: bodyRaw, MessageSid: sid } = req.body;
+    const body = (bodyRaw || '').trim();
+    const digits = (from || '').replace(/\D/g, '').slice(-10);
+
+    // Match inbound → employee by last-10-digits of phone.
+    const { rows: empRows } = await pool.query(
+      `SELECT id, business_id, first_name, phone
+       FROM employees WHERE active = true`
+    );
+    const match = empRows.find(e => (e.phone || '').replace(/\D/g, '').slice(-10) === digits);
+
+    const upperFirstWord = body.split(/\s+/)[0].toUpperCase();
+    const isStop = STOP_KEYWORDS.has(upperFirstWord);
+    const isStart = START_KEYWORDS.has(upperFirstWord);
+
+    // Persist the inbound message (even if we don't know the employee)
+    await pool.query(
+      `INSERT INTO messages
+         (business_id, employee_id, direction, channel, body, twilio_sid, status, sent_at)
+       VALUES ($1, $2, 'inbound', 'sms', $3, $4, 'delivered', NOW())`,
+      [match ? match.business_id : null, match ? match.id : null, body, sid || null]
+    );
+
+    // Handle STOP / START
+    if (match && (isStop || isStart)) {
+      await pool.query(
+        `UPDATE employees
+         SET sms_opt_out = $1,
+             sms_opt_out_at = CASE WHEN $1 THEN NOW() ELSE NULL END
+         WHERE id = $2`,
+        [isStop, match.id]
+      );
+    }
+
+    // Flag any recent campaign run from this employee as replied
+    if (match && !isStop) {
+      await pool.query(
+        `UPDATE campaign_runs
+         SET status = 'replied'
+         WHERE employee_id = $1
+           AND status = 'sent'
+           AND sent_at > NOW() - INTERVAL '14 days'`,
+        [match.id]
+      ).catch(() => {}); // table may not yet exist on very first boot
+    }
+
+    // Twilio-compliant confirmation reply for STOP / START (legally required for STOP)
+    let replyBody = null;
+    if (isStop) replyBody = 'You have been unsubscribed from CrewCast messages. Reply START to resume.';
+    if (isStart && match) replyBody = 'You are resubscribed to CrewCast messages. Reply STOP to unsubscribe.';
+
+    res.set('Content-Type', 'text/xml');
+    if (replyBody) {
+      res.send(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeXml(replyBody)}</Message></Response>`
+      );
+    } else {
+      res.send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
+    }
+  } catch (err) {
+    console.error('Inbound SMS error:', err);
+    res.status(500).send('Error');
+  }
+});
+
+function escapeXml(s) {
+  return String(s).replace(/[<>&"']/g, (c) => ({
+    '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;'
+  }[c]));
+}
+
 // ── POST /api/sms/send-invite ──
 // Send invite SMS to a single employee
 router.post('/send-invite', authenticate, requireAdmin, async (req, res) => {

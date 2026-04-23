@@ -11,6 +11,8 @@ Router.add('/signup', (app) => renderOnboard(app));
 Router.add('/invite/:token', (app, params) => renderSetup(app, params));
 Router.add('/join/:slug', (app, params) => renderJoin(app, params));
 Router.add('/join', (app) => renderJoin(app, {}));
+// Magic-link consumption (phone-only sign-in for personal devices)
+Router.add('/m/:token', (app, params) => renderMagic(app, params));
 
 // Employee routes
 Router.add('/welcome', (app) => {
@@ -159,9 +161,12 @@ demoRoutes.forEach(([path, handler]) => {
 // ── Initialize router ──
 Router.init();
 
-// ── Load feature flags (for returning sessions) ──
+// ── Load feature flags + refresh session (for returning sessions) ──
 if (API.isLoggedIn()) {
   API.getFeatures().then(f => { API.features = f; }).catch(() => { API.features = {}; });
+  // Roll the session expiry forward to 1 year from now on every app open.
+  // Silent — ignore errors (401s will bounce the user to /login automatically).
+  API.refresh().catch(() => {});
 }
 
 // ── PWA Install Prompt ──

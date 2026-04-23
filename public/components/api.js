@@ -64,8 +64,13 @@ const API = {
   delete(url) { return this.fetch(url, { method: 'DELETE' }); },
 
   // ── Auth ──
-  login: (phone, pin, businessSlug) => API.post('/api/auth/login', { phone, pin, businessSlug }),
+  login: (phone, pin, businessSlug, deviceType) =>
+    API.post('/api/auth/login', { phone, pin, businessSlug, deviceType }),
   setup: (inviteToken, pin) => API.post('/api/auth/setup', { inviteToken, pin }),
+  magicLink: (phone, businessSlug) =>
+    API.post('/api/auth/magic-link', { phone, businessSlug }),
+  magicConsume: (token) => API.post('/api/auth/magic-consume', { token }),
+  refresh: () => API.post('/api/auth/refresh', {}),
   me: () => API.get('/api/auth/me'),
   logout: () => API.post('/api/auth/logout', {}),
 

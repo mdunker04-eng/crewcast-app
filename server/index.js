@@ -43,6 +43,11 @@ app.use('/api/push', require('./routes/push'));
 app.use('/api/stations', require('./routes/stations'));
 app.use('/api/time', require('./routes/time'));
 app.use('/api/sms', require('./routes/sms'));
+app.use('/api/seasons', require('./routes/seasons'));
+app.use('/api/messages', require('./routes/messages'));
+app.use('/api/segments', require('./routes/segments'));
+app.use('/api/message-templates', require('./routes/templates'));
+app.use('/api/campaigns', require('./routes/campaigns'));
 
 // ── Demo page ──
 app.get('/demo', (req, res) => {
@@ -114,6 +119,14 @@ async function start() {
           console.log('[Cron] Reminder error:', e.message);
         }
       }, 60 * 60 * 1000); // every hour
+
+      // ── Campaign Scheduler ──
+      // Every 15 min: generate due campaign_runs and auto-send queued ones.
+      const { tickCampaigns } = require('./lib/campaign-scheduler');
+      tickCampaigns().catch(e => console.log('[CampaignCron] boot tick error:', e.message));
+      setInterval(() => {
+        tickCampaigns().catch(e => console.log('[CampaignCron] tick error:', e.message));
+      }, 15 * 60 * 1000);
     });
   } catch (err) {
     console.error('Failed to start server:', err);

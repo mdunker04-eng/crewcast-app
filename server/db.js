@@ -138,6 +138,119 @@ async function initDB() {
         expires_at TIMESTAMPTZ NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+
+      -- Magic tokens (phone-only login fallback for personal devices)
+      CREATE TABLE IF NOT EXISTS magic_tokens (
+        id SERIAL PRIMARY KEY,
+        employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        token TEXT UNIQUE NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_magic_tokens_token ON magic_tokens (token);
+      CREATE INDEX IF NOT EXISTS idx_magic_tokens_employee ON magic_tokens (employee_id, created_at DESC);
+
+      -- ───────────────────────────────────────────────────────
+      -- Track B: Communications Hub
+      -- ───────────────────────────────────────────────────────
+
+      -- Seasons (multi-season support for campaign anchoring)
+      CREATE TABLE IF NOT EXISTS seasons (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        start_date DATE NOT NULL,
+        end_date DATE,
+        active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_seasons_business ON seasons (business_id);
+
+      -- Reusable saved segment filters
+      CREATE TABLE IF NOT EXISTS segments (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        filter JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_segments_business ON segments (business_id);
+
+      -- Reusable message templates
+      CREATE TABLE IF NOT EXISTS message_templates (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        body TEXT NOT NULL,
+        variables JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_templates_business ON message_templates (business_id);
+
+      -- Campaigns (reusable multi-step templates anchored to a season)
+      CREATE TABLE IF NOT EXISTS campaigns (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        season_id INTEGER REFERENCES seasons(id) ON DELETE SET NULL,
+        steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+        segment_filter JSONB NOT NULL DEFAULT '{}'::jsonb,
+        send_mode VARCHAR(20) NOT NULL DEFAULT 'require_approval',
+        active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_campaigns_business ON campaigns (business_id);
+      CREATE INDEX IF NOT EXISTS idx_campaigns_active ON campaigns (active) WHERE active = true;
+
+      -- Individual scheduled sends generated from campaign steps
+      CREATE TABLE IF NOT EXISTS campaign_runs (
+        id SERIAL PRIMARY KEY,
+        campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+        step_index INTEGER NOT NULL,
+        employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        scheduled_for TIMESTAMPTZ NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending_approval',
+        approved_by INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+        approved_at TIMESTAMPTZ,
+        sent_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_runs_campaign ON campaign_runs (campaign_id, step_index);
+      CREATE INDEX IF NOT EXISTS idx_runs_status ON campaign_runs (status);
+      CREATE INDEX IF NOT EXISTS idx_runs_employee ON campaign_runs (employee_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_runs_unique ON campaign_runs (campaign_id, step_index, employee_id);
+
+      -- Messages (unified inbox: SMS + push, inbound + outbound)
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+        direction VARCHAR(10) NOT NULL,
+        channel VARCHAR(10) NOT NULL,
+        body TEXT NOT NULL,
+        twilio_sid VARCHAR(64),
+        push_sub_id INTEGER,
+        status VARCHAR(20) NOT NULL DEFAULT 'queued',
+        sent_at TIMESTAMPTZ,
+        delivered_at TIMESTAMPTZ,
+        read_at TIMESTAMPTZ,
+        error TEXT,
+        campaign_run_id INTEGER REFERENCES campaign_runs(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_messages_business ON messages (business_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_messages_employee ON messages (employee_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages (business_id, direction, read_at)
+        WHERE direction = 'inbound' AND read_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_messages_twilio ON messages (twilio_sid);
+
+      -- Per-employee messaging opt-out (TCPA STOP handling)
+      ALTER TABLE employees
+        ADD COLUMN IF NOT EXISTS sms_opt_out BOOLEAN DEFAULT false;
+      ALTER TABLE employees
+        ADD COLUMN IF NOT EXISTS sms_opt_out_at TIMESTAMPTZ;
     `);
 
     // ── Time Tracking tables (separated from main schema to safely handle
