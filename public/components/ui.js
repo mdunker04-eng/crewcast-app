@@ -128,6 +128,7 @@ const UI = {
       { id: 'demo-cascade', icon: '🎬', label: 'Live Demo', path: '/admin/demo/cascade' },
       { id: 'demo-swaps', icon: '🔄', label: 'Shift Swaps', path: '/admin/demo/swaps' },
       { id: 'demo-sms', icon: '📱', label: 'SMS Center', path: '/admin/demo/sms' },
+      { id: 'inbox', icon: '💬', label: 'Inbox', path: '/admin/inbox' },
       { section: 'Insights' },
       { id: 'demo-costs', icon: '💰', label: 'Cost of Gaps', path: '/admin/demo/costs' },
       { id: 'demo-alerts', icon: '🚨', label: 'Alerts', path: '/admin/demo/alerts', badge: '5' },

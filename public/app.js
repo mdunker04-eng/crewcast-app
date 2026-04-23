@@ -131,6 +131,11 @@ Router.add('/admin/onboarding', (app) => {
   if (!API.isAdmin()) return Router.navigate('/', true);
   renderOnboarding(app);
 });
+Router.add('/admin/inbox', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  if (!API.isAdmin()) return Router.navigate('/', true);
+  renderInbox(app);
+});
 // Legacy alias — old links in docs pointed at /admin/cg-onboard.
 Router.add('/admin/cg-onboard', (app) => Router.navigate('/admin/onboarding', true));
 

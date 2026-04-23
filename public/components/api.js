@@ -240,4 +240,11 @@ const API = {
   lateCheck: (notify = false) =>
     API.get(`/api/time/late-check${notify ? '?notify=1' : ''}`),
 
+  // ── Messages / Inbox ──
+  getThreads: () => API.get('/api/messages/threads'),
+  getThread: (empId) => API.get(`/api/messages/threads/${empId}`),
+  markThreadRead: (empId) => API.post(`/api/messages/threads/${empId}/read`, {}),
+  sendMessage: (data) => API.post('/api/messages/send', data),
+  getUnreadCount: () => API.get('/api/messages/unread-count'),
+
 };
