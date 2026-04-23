@@ -173,9 +173,18 @@ async function tryPush(subRecord, payload) {
   }
 }
 
+// Prefer Messaging Service SID (A2P 10DLC + Advanced Opt-Out); fall back to raw from-number.
+function getTwilioSender() {
+  const msgSvc = process.env.TWILIO_MESSAGING_SERVICE_SID;
+  if (msgSvc) return { messagingServiceSid: msgSvc };
+  if (process.env.TWILIO_FROM_NUMBER) return { from: process.env.TWILIO_FROM_NUMBER };
+  return null;
+}
+
 async function trySms(phone, body) {
   const twilio = getTwilio();
-  if (!twilio || !process.env.TWILIO_FROM_NUMBER) {
+  const sender = getTwilioSender();
+  if (!twilio || !sender) {
     return { ok: false, error: 'Twilio not configured' };
   }
   const digits = (phone || '').replace(/\D/g, '').slice(-10);
@@ -184,7 +193,7 @@ async function trySms(phone, body) {
   try {
     const msg = await twilio.messages.create({
       body,
-      from: process.env.TWILIO_FROM_NUMBER,
+      ...sender,
       to: '+1' + digits,
     });
     return { ok: true, sid: msg.sid };

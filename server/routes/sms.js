@@ -23,11 +23,21 @@ function getTwilioFrom() {
   return process.env.TWILIO_FROM_NUMBER || '';
 }
 
+// Returns the outbound-sender argument shape to spread into twilio.messages.create().
+// Prefers a Messaging Service SID (required for A2P 10DLC + Advanced Opt-Out);
+// falls back to the raw TWILIO_FROM_NUMBER if no service is configured.
+function getTwilioSender() {
+  const msgSvc = process.env.TWILIO_MESSAGING_SERVICE_SID;
+  if (msgSvc) return { messagingServiceSid: msgSvc };
+  return { from: getTwilioFrom() };
+}
+
 // ── GET /api/sms/status ──
-// Check if Twilio is configured
+// Check if Twilio is configured (either via Messaging Service or raw from-number).
 router.get('/status', authenticate, requireAdmin, (req, res) => {
-  const configured = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER);
-  res.json({ configured });
+  const hasCreds = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN);
+  const hasSender = !!(process.env.TWILIO_MESSAGING_SERVICE_SID || process.env.TWILIO_FROM_NUMBER);
+  res.json({ configured: hasCreds && hasSender });
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -109,19 +119,13 @@ router.post('/webhook', async (req, res) => {
       ).catch(() => {}); // table may not yet exist on very first boot
     }
 
-    // Twilio-compliant confirmation reply for STOP / START (legally required for STOP)
-    let replyBody = null;
-    if (isStop) replyBody = 'You have been unsubscribed from CrewCast messages. Reply START to resume.';
-    if (isStart && match) replyBody = 'You are resubscribed to CrewCast messages. Reply STOP to unsubscribe.';
-
+    // Twilio Messaging Service (Advanced Opt-Out) sends the CrewCast-branded
+    // STOP/START/HELP confirmations automatically at the carrier layer. Returning
+    // our own <Message> here would cause duplicate texts — and for STOP it would
+    // fail with error 21610 ("unsubscribed recipient") anyway. Return an empty
+    // <Response> so we still 200 OK the webhook.
     res.set('Content-Type', 'text/xml');
-    if (replyBody) {
-      res.send(
-        `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeXml(replyBody)}</Message></Response>`
-      );
-    } else {
-      res.send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
-    }
+    res.send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
   } catch (err) {
     console.error('Inbound SMS error:', err);
     res.status(500).send('Error');
@@ -159,7 +163,7 @@ router.post('/send-invite', authenticate, requireAdmin, async (req, res) => {
 
     await twilio.messages.create({
       body: `${emp.business_name} uses CrewCast for scheduling! Set up your account: ${joinUrl}\n\nUse this link on your phone to view shifts, clock in, and more.`,
-      from: getTwilioFrom(),
+      ...getTwilioSender(),
       to: '+1' + emp.phone.replace(/\D/g, '').slice(-10),
     });
 
@@ -204,7 +208,7 @@ router.post('/send-bulk-invites', authenticate, requireAdmin, async (req, res) =
       try {
         await twilio.messages.create({
           body: `${emp.business_name} uses CrewCast for scheduling! Set up your account: ${joinUrl}\n\nUse this link on your phone to view shifts, clock in, and more.`,
-          from: getTwilioFrom(),
+          ...getTwilioSender(),
           to: '+1' + digits,
         });
         sent++;
@@ -248,7 +252,7 @@ router.post('/notify', authenticate, requireAdmin, async (req, res) => {
       try {
         await twilio.messages.create({
           body: message,
-          from: getTwilioFrom(),
+          ...getTwilioSender(),
           to: '+1' + digits,
         });
         sent++;
