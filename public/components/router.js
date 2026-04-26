@@ -92,8 +92,13 @@ const Router = {
     document.addEventListener('click', (e) => {
       const link = e.target.closest('a[href]');
       if (link && link.href.startsWith(location.origin) && !link.hasAttribute('download') && !link.hasAttribute('target')) {
+        const href = link.getAttribute('href');
+        // Skip hash-only links (e.g. href="#" used as a no-op for onclick handlers).
+        // The router was eating these clicks and re-rendering the page, which
+        // wiped out any UI toggles the onclick handler had just performed.
+        if (!href || href === '#' || href.startsWith('#')) return;
         e.preventDefault();
-        this.navigate(link.getAttribute('href'));
+        this.navigate(href);
       }
     });
 
