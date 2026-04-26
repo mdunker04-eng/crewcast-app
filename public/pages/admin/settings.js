@@ -31,6 +31,15 @@ function renderSettingsSections() {
   const el = document.getElementById('settings-content');
 
   el.innerHTML = `
+    <!-- Push Notifications (admin) -->
+    <div class="card mb-4" id="notif-settings">
+      <div class="flex items-center gap-2 mb-2">
+        <span style="font-size:18px">🔔</span>
+        <div class="semi text-sm">Push Notifications</div>
+      </div>
+      <div id="notif-status">${UI.loading()}</div>
+    </div>
+
     <!-- Section nav pills -->
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px">
       ${['Business','Hours','Stations','Staffing','Scheduling','Preferences','Swaps','Weather','Communication','Onboarding','Reports','Branding'].map((label, i) =>
@@ -239,6 +248,9 @@ function renderSettingsSections() {
 
     <div style="height:20px"></div>
   `;
+
+  // Render push-notification status (function lives in employee/preferences.js but is global)
+  if (typeof renderNotifStatus === 'function') renderNotifStatus();
 
   // Wire up conditional toggles
   wireToggleVisibility('seasonal', 'seasonal-dates');
