@@ -45,6 +45,12 @@ Router.add('/preferences', (app) => {
   if (f.employeeRankStations === false) return Router.navigate('/', true);
   renderPreferences(app);
 });
+Router.add('/settings', (app) => {
+  if (!API.isLoggedIn()) return Router.navigate('/login', true);
+  // Admins use /admin/settings; employees use /settings.
+  if (API.isAdmin && API.isAdmin()) return Router.navigate('/admin/settings', true);
+  renderEmployeeSettings(app);
+});
 Router.add('/assignments', (app) => {
   if (!API.isLoggedIn()) return Router.navigate('/login', true);
   renderAssignmentsEmployee(app);
@@ -296,4 +302,33 @@ function urlBase64ToUint8Array(base64String) {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
+}
+
+// ── Sticky notification banner ────────────────────────────────
+// Injects UI.notifBanner() above the page on every render, for any
+// signed-in user who hasn't yet granted notification permission.
+function injectNotifBanner() {
+  if (!API.isLoggedIn || !API.isLoggedIn()) return;
+  const existing = document.getElementById('notif-banner');
+  if (existing) existing.remove();
+  const html = (UI.notifBanner && UI.notifBanner()) || '';
+  if (!html) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  const banner = wrap.firstElementChild;
+  document.body.insertBefore(banner, document.body.firstChild);
+}
+function dismissNotifBanner() {
+  sessionStorage.setItem('cc-notif-banner-dismissed', '1');
+  const el = document.getElementById('notif-banner');
+  if (el) el.remove();
+}
+// Re-inject after each route resolution.
+if (typeof Router !== 'undefined' && Router.resolve) {
+  const _origResolve = Router.resolve.bind(Router);
+  Router.resolve = function () {
+    const r = _origResolve();
+    setTimeout(injectNotifBanner, 50);
+    return r;
+  };
 }

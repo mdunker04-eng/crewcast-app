@@ -10,24 +10,14 @@ async function renderPreferences(app) {
   app.innerHTML = `
     <div class="page">
       <div class="page-header">
-        <h1>My Preferences</h1>
+        <h1>Station Preferences</h1>
         <p class="subtitle">Rank your preferred stations — we'll try to match you</p>
-      </div>
-
-      <!-- Notification Settings -->
-      <div class="card" id="notif-settings" style="margin-bottom:16px">
-        <div class="flex items-center gap-2 mb-2">
-          <span style="font-size:18px">🔔</span>
-          <div class="semi text-sm">Push Notifications</div>
-        </div>
-        <div id="notif-status">${UI.loading()}</div>
       </div>
 
       <div id="pref-content">${UI.loading()}</div>
     </div>
     ${UI.employeeNav('preferences')}
   `;
-  renderNotifStatus();
 
   try {
     const [stations, myPrefs] = await Promise.all([

@@ -59,6 +59,9 @@ async function renderEmployeeWelcome(app) {
         <p class="text-muted" style="font-size:14px">Here's how to get the most out of CrewCast.</p>
       </div>
 
+      <!-- Featured: Turn on Notifications -->
+      ${UI.notifPromptCard ? UI.notifPromptCard() : ''}
+
       <!-- Checklist Steps -->
       <div style="display:grid;gap:10px;margin-bottom:20px">
         ${steps.map((step, idx) => `

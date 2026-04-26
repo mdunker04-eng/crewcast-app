@@ -35,6 +35,7 @@ async function renderEmployeeHome(app) {
     const upcoming = shifts.filter(s => s.status === 'confirmed').slice(0, 3);
 
     document.getElementById('home-content').innerHTML = `
+      ${UI.notifPromptCard ? UI.notifPromptCard() : ''}
       <div class="stat-grid">
         <div class="stat-card">
           <div class="stat-label">Upcoming</div>
