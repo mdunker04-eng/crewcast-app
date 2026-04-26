@@ -54,6 +54,15 @@ function getTwilio() {
   return null;
 }
 
+// ── Helper: prefer Messaging Service SID (A2P 10DLC compliant); fall back to raw FROM number.
+// Mirrors lib/send-message.js so magic-link SMS uses the same compliant sender.
+function getTwilioSender() {
+  const msgSvc = process.env.TWILIO_MESSAGING_SERVICE_SID;
+  if (msgSvc) return { messagingServiceSid: msgSvc };
+  if (process.env.TWILIO_FROM_NUMBER) return { from: process.env.TWILIO_FROM_NUMBER };
+  return null;
+}
+
 // ── POST /api/auth/login ──
 // Phone + PIN login. Used for:
 //   - Admin / owner logins (higher-privilege accounts still require PIN)
@@ -360,13 +369,14 @@ router.post('/magic-link', async (req, res) => {
 
     // Send SMS (if Twilio is configured)
     const twilio = getTwilio();
-    if (twilio && process.env.TWILIO_FROM_NUMBER) {
+    const sender = getTwilioSender();
+    if (twilio && sender) {
       const baseUrl = process.env.BASE_URL || `https://${req.headers.host}`;
       const link = `${baseUrl}/m/${token}`;
       try {
         await twilio.messages.create({
           body: `${employee.business_name} CrewCast sign-in link (expires in 15 min): ${link}`,
-          from: process.env.TWILIO_FROM_NUMBER,
+          ...sender,
           to: '+1' + digits,
         });
       } catch (smsErr) {
