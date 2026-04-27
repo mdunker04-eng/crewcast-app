@@ -46,6 +46,27 @@ router.post('/subscribe', authenticate, async (req, res) => {
   }
 });
 
+// Helper: look up business name (cached briefly per request lifetime).
+async function getBusinessName(businessId) {
+  if (!businessId) return '';
+  try {
+    const { rows } = await pool.query('SELECT name FROM businesses WHERE id = $1', [businessId]);
+    return (rows[0] && rows[0].name) || '';
+  } catch (e) { return ''; }
+}
+
+// Helper: prefix the title with the business name so employees know
+// which workplace the notification is for. iOS shows the title in bold
+// at the top of the banner; "from CrewCast" appears below it from the
+// PWA name. Multi-tenant deployments need the business name *in* the
+// title to be unambiguous.
+function brandTitle(businessName, title) {
+  if (!businessName) return title;
+  // Avoid double-branding if the caller already included it.
+  if (title && title.toLowerCase().includes(businessName.toLowerCase())) return title;
+  return `${businessName} · ${title}`;
+}
+
 // ── POST /api/push/send ──
 // Send notification to specific employees (admin)
 router.post('/send', authenticate, requireAdmin, async (req, res) => {
@@ -72,8 +93,9 @@ router.post('/send', authenticate, requireAdmin, async (req, res) => {
       `, [req.user.businessId]));
     }
 
+    const businessName = await getBusinessName(req.user.businessId);
     const payload = JSON.stringify({
-      title,
+      title: brandTitle(businessName, title),
       body,
       url: url || '/',
       icon: '/icons/icon-192.png',
@@ -107,12 +129,17 @@ router.post('/send', authenticate, requireAdmin, async (req, res) => {
 // Helper: send notification to a single employee (used internally)
 async function notifyEmployee(employeeId, title, body, url) {
   const { rows } = await pool.query(
-    'SELECT * FROM push_subscriptions WHERE employee_id = $1',
+    `SELECT ps.*, e.business_id, b.name as business_name
+     FROM push_subscriptions ps
+     JOIN employees e ON ps.employee_id = e.id
+     LEFT JOIN businesses b ON e.business_id = b.id
+     WHERE ps.employee_id = $1`,
     [employeeId]
   );
 
+  const businessName = (rows[0] && rows[0].business_name) || '';
   const payload = JSON.stringify({
-    title,
+    title: brandTitle(businessName, title),
     body,
     url: url || '/',
     icon: '/icons/icon-192.png',
@@ -138,8 +165,11 @@ async function notifyBusinessAdmins(businessId, title, body, url) {
       WHERE e.business_id = $1 AND e.role IN ('admin', 'owner') AND e.active = true
     `, [businessId]);
 
+    const businessName = await getBusinessName(businessId);
     const payload = JSON.stringify({
-      title, body, url: url || '/',
+      title: brandTitle(businessName, title),
+      body,
+      url: url || '/',
       icon: '/icons/icon-192.png',
     });
 
@@ -262,7 +292,9 @@ router.post('/shift-reminders', async (req, res) => {
       let pushSucceeded = false;
       if (subs.length > 0) {
         const payload = JSON.stringify({
-          title, body, url: '/schedule',
+          title: brandTitle(emp.business_name, title),
+          body,
+          url: '/schedule',
           icon: '/icons/icon-192.png',
           badge: '/icons/icon-72.png',
         });
