@@ -187,6 +187,7 @@ async function enablePushNotifs() {
     if (permission !== 'granted') {
       UI.toast('Notification permission denied', 'error');
       renderNotifStatus();
+      refreshNotifPromptsInPage();
       return;
     }
     const reg = await navigator.serviceWorker.ready;
@@ -200,8 +201,22 @@ async function enablePushNotifs() {
     await API.subscribePush(subscription);
     UI.toast('Notifications enabled!');
     renderNotifStatus();
+    refreshNotifPromptsInPage();
   } catch (err) {
     UI.toast('Failed to enable: ' + err.message, 'error');
+  }
+}
+
+// Strip the banner + any "Turn on notifications" cards from the current
+// view so the user doesn't keep seeing the prompt after they've enabled.
+function refreshNotifPromptsInPage() {
+  // Remove the sticky top banner (it'll come back next route if needed,
+  // but UI.notifBanner() returns '' when permission is granted).
+  const banner = document.getElementById('notif-banner');
+  if (banner) banner.remove();
+  // Re-render the current route so any inline notifPromptCard() vanishes.
+  if (typeof Router !== 'undefined' && Router.resolve) {
+    try { Router.resolve(); } catch (e) { /* no-op */ }
   }
 }
 
