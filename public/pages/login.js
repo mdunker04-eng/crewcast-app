@@ -37,6 +37,26 @@ function renderLogin(app) {
           </div>
 
           <div style="text-align:center;margin-top:20px">
+            <a href="#" onclick="showInviteLinkBox();return false"
+              class="text-xs" style="color:var(--purple-light)">
+              Have an invite link? Tap to paste →
+            </a>
+          </div>
+
+          <!-- Invite link paste box (hidden by default) -->
+          <div id="login-invite-box" class="card" style="display:none;margin-top:14px;padding:12px">
+            <label class="form-label text-xs">Paste your invite link</label>
+            <input type="url" id="login-invite-input" class="form-input"
+              placeholder="https://crewcast-app-production.up.railway.app/invite/..."
+              autocomplete="off" autocapitalize="off" spellcheck="false">
+            <button class="btn btn-primary btn-block mt-2" onclick="handleInviteLinkPaste()">Sign In with Invite</button>
+            <p class="text-xs text-muted mt-2">
+              Use this if SMS isn't working or you got the link from your manager. Pasting any
+              <code>/invite/...</code> URL will sign you in.
+            </p>
+          </div>
+
+          <div style="text-align:center;margin-top:14px">
             <a href="#" onclick="showAdminLogin();return false"
               class="text-xs" style="color:var(--purple-light)">
               Admin? Sign in with PIN →
@@ -106,6 +126,32 @@ function showEmployeeLogin() {
   document.getElementById('login-admin').style.display = 'none';
   document.getElementById('login-employee').style.display = 'block';
   setTimeout(() => document.getElementById('login-phone').focus(), 50);
+}
+
+function showInviteLinkBox() {
+  const box = document.getElementById('login-invite-box');
+  if (!box) return;
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if (box.style.display === 'block') {
+    setTimeout(() => document.getElementById('login-invite-input').focus(), 50);
+  }
+}
+
+function handleInviteLinkPaste() {
+  const raw = (document.getElementById('login-invite-input').value || '').trim();
+  if (!raw) {
+    UI.toast('Paste your invite link first', 'error');
+    return;
+  }
+  // Accept either a full URL (https://...../invite/<token>) or just the token.
+  const m = raw.match(/\/invite\/([A-Za-z0-9_-]+)/);
+  const token = m ? m[1] : raw;
+  if (!/^[A-Za-z0-9_-]{8,}$/.test(token)) {
+    UI.toast("That doesn't look like a valid invite link", 'error');
+    return;
+  }
+  // Navigate within the SPA so we stay in PWA scope (iOS keeps storage isolated).
+  Router.navigate('/invite/' + token);
 }
 
 async function handleMagicLink() {
