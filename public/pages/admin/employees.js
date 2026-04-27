@@ -154,16 +154,23 @@ async function renderAdminEmployees(app) {
 
       ${inactive.length > 0 ? `
         <div class="card">
-          <div class="card-title mb-2 text-muted">Inactive (${inactive.length})</div>
-          ${inactive.map(e => `
-            <div class="list-item" style="opacity:.5">
-              <div>
-                <div class="semi">${e.firstName} ${e.lastName}</div>
-                <div class="text-xs text-muted">${formatPhoneNumber(e.phone)}</div>
+          <div class="card-header" style="cursor:pointer" onclick="toggleInactiveList()">
+            <div class="card-title text-muted">Inactive (${inactive.length})</div>
+            <span id="inactive-toggle-icon" class="text-xs text-muted">${inactive.length <= 5 ? '▾' : '▸'}</span>
+          </div>
+          <div id="inactive-list" style="${inactive.length <= 5 ? '' : 'display:none'}">
+            ${inactive.map(e => `
+              <div class="list-item" style="opacity:.7">
+                <div style="flex:1">
+                  <div class="semi">${e.firstName} ${e.lastName}</div>
+                  <div class="text-xs text-muted">${formatPhoneNumber(e.phone) || 'No phone'}</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="reactivateEmployee(${e.id}, '${(e.firstName + ' ' + e.lastName).replace(/'/g, "\\'")}')">
+                  Reactivate
+                </button>
               </div>
-              <span class="badge badge-red">Inactive</span>
-            </div>
-          `).join('')}
+            `).join('')}
+          </div>
         </div>
       ` : ''}
     `;
@@ -322,6 +329,25 @@ async function deactivateEmployee(id, name) {
   } catch (err) {
     UI.toast(err.message, 'error');
   }
+}
+
+async function reactivateEmployee(id, name) {
+  try {
+    await API.reactivateEmployee(id);
+    UI.toast(`${name} reactivated`);
+    renderAdminEmployees(document.getElementById('app'));
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
+}
+
+function toggleInactiveList() {
+  const list = document.getElementById('inactive-list');
+  const icon = document.getElementById('inactive-toggle-icon');
+  if (!list) return;
+  const isHidden = list.style.display === 'none';
+  list.style.display = isHidden ? '' : 'none';
+  if (icon) icon.textContent = isHidden ? '▾' : '▸';
 }
 
 // ═══════════════════════════════════════════════════════

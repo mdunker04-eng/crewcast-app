@@ -79,6 +79,7 @@ const API = {
   addEmployee: (data) => API.post('/api/employees', data),
   updateEmployee: (id, data) => API.put(`/api/employees/${id}`, data),
   deleteEmployee: (id) => API.delete(`/api/employees/${id}`),
+  reactivateEmployee: (id) => API.post(`/api/employees/${id}/reactivate`, {}),
   bulkImport: (employees) => API.post('/api/employees/bulk', { employees }),
 
   // ── Schedules ──

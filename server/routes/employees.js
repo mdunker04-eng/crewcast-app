@@ -153,6 +153,22 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ── POST /api/employees/:id/reactivate ──
+// Re-enable a previously deactivated employee.
+router.post('/:id/reactivate', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      'UPDATE employees SET active = true WHERE id = $1 AND business_id = $2',
+      [req.params.id, req.user.businessId]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Employee not found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Reactivate employee error:', err);
+    res.status(500).json({ error: 'Failed to reactivate employee' });
+  }
+});
+
 // ── POST /api/employees/bulk ──
 // Bulk import employees (from intake form JSON)
 router.post('/bulk', authenticate, requireAdmin, async (req, res) => {
