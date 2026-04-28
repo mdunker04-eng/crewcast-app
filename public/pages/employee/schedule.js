@@ -251,10 +251,23 @@ function renderScheduleShiftCard(s) {
 // on a pending shift. No decline reason; just propose a window the employee
 // CAN work, optional note, send.
 function showCounterOfferModal(scheduleId, shiftId, shiftStart, shiftEnd) {
-  const startGuess = (shiftStart && shiftEnd)
-    ? midpointTime(shiftStart, shiftEnd)
-    : (shiftStart || '10:00');
-  const endGuess = shiftEnd || '17:00';
+  const startGuess = roundTo15(
+    (shiftStart && shiftEnd) ? midpointTime(shiftStart, shiftEnd) : (shiftStart || '10:00')
+  );
+  const endGuess = roundTo15(shiftEnd || '17:00');
+
+  // 15-min increments via dropdown — guaranteed snap on every browser
+  // including iOS Safari (which ignores `step` on type=time inputs).
+  function timeOpts(selected) {
+    let opts = '';
+    for (let h = 5; h <= 23; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const val = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        opts += `<option value="${val}" ${val === selected ? 'selected' : ''}>${UI.formatTime(val)}</option>`;
+      }
+    }
+    return opts;
+  }
 
   UI.showModal('Offer Alternate Hours', `
     <p class="text-sm text-muted mb-3">
@@ -265,20 +278,28 @@ function showCounterOfferModal(scheduleId, shiftId, shiftStart, shiftEnd) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div>
           <label class="form-label text-xs">I can start at</label>
-          <input type="time" id="alt-start" class="form-input" step="900" value="${startGuess}">
+          <select id="alt-start" class="form-input">${timeOpts(startGuess)}</select>
         </div>
         <div>
           <label class="form-label text-xs">And work until</label>
-          <input type="time" id="alt-end" class="form-input" step="900" value="${endGuess}">
+          <select id="alt-end" class="form-input">${timeOpts(endGuess)}</select>
         </div>
       </div>
       <input type="text" id="alt-note" class="form-input mt-2" placeholder="Optional note for your manager (e.g., 'class until 9:45')">
     </div>
-    <p class="text-xs text-muted mt-2">Time picker steps in 15-minute increments.</p>
+    <p class="text-xs text-muted mt-2">Times are in 15-minute increments.</p>
   `, `
     <button class="btn btn-primary" onclick="submitCounterOffer(${scheduleId}, ${shiftId})">Send Offer</button>
     <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
   `);
+}
+
+// Round HH:MM down to the nearest 15-min slot so it lines up with the dropdown.
+function roundTo15(t) {
+  if (!t || !/^\d{1,2}:\d{2}$/.test(t)) return '10:00';
+  const [h, m] = t.split(':').map(Number);
+  const snapped = Math.floor(m / 15) * 15;
+  return `${String(h).padStart(2, '0')}:${String(snapped).padStart(2, '0')}`;
 }
 
 async function submitCounterOffer(scheduleId, shiftId) {
