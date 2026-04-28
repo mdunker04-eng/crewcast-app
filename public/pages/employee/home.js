@@ -132,8 +132,9 @@ function renderShiftCard(shift, showActions) {
         ${shift.schedule_name ? `<span class="text-xs text-muted">${shift.schedule_name}</span>` : ''}
       </div>
       ${showActions && shift.status === 'pending' ? `
-        <div class="shift-actions">
+        <div class="shift-actions" style="display:flex;flex-wrap:wrap;gap:6px">
           <button class="btn btn-success btn-sm" onclick="respondToShift(${shift.schedule_id}, ${shift.id}, 'confirmed')">Confirm</button>
+          <button class="btn btn-secondary btn-sm" onclick="showCounterOfferModal(${shift.schedule_id}, ${shift.id}, '${shift.start_time}', '${shift.end_time}')" style="background:rgba(96,165,250,.12);border-color:rgba(96,165,250,.4);color:#60A5FA">💬 Offer Alt Hours</button>
           <button class="btn btn-danger btn-sm" onclick="showDeclineModal(${shift.schedule_id}, ${shift.id}, '${shift.start_time}', '${shift.end_time}')">Can't Make It</button>
         </div>
       ` : ''}
