@@ -89,8 +89,12 @@ const API = {
   deleteSchedule: (id) => API.delete(`/api/schedules/${id}`),
   getShifts: (scheduleId) => API.get(`/api/schedules/${scheduleId}/shifts`),
   addShifts: (scheduleId, shifts) => API.post(`/api/schedules/${scheduleId}/shifts`, { shifts }),
-  respondShift: (scheduleId, shiftId, status, notes, decline_reason) =>
-    API.put(`/api/schedules/${scheduleId}/shifts/${shiftId}/respond`, { status, notes, decline_reason }),
+  updateShift: (scheduleId, shiftId, patch) => API.fetch(`/api/schedules/${scheduleId}/shifts/${shiftId}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  deleteShift: (scheduleId, shiftId) => API.delete(`/api/schedules/${scheduleId}/shifts/${shiftId}`),
+  respondShift: (scheduleId, shiftId, status, notes, decline_reason, counterOffer) =>
+    API.put(`/api/schedules/${scheduleId}/shifts/${shiftId}/respond`, { status, notes, decline_reason, counterOffer }),
+  acceptCounter: (scheduleId, shiftId) => API.post(`/api/schedules/${scheduleId}/shifts/${shiftId}/counter/accept`, {}),
+  rejectCounter: (scheduleId, shiftId) => API.post(`/api/schedules/${scheduleId}/shifts/${shiftId}/counter/reject`, {}),
   getMyShifts: () => API.get('/api/schedules/my-shifts'),
 
   // ── Auto-Fill (server-side smart scheduling) ──
@@ -113,6 +117,7 @@ const API = {
   getVapidKey: () => API.get('/api/push/vapid-key'),
   subscribePush: (subscription) => API.post('/api/push/subscribe', { subscription }),
   sendPush: (data) => API.post('/api/push/send', data),
+  sendTestPush: () => API.post('/api/push/test', {}),
   sendShiftReminders: (type) => API.post('/api/push/shift-reminders', { type }),
   notifySchedulePublished: (scheduleId, scheduleName, startDate, endDate) =>
     API.post('/api/push/schedule-published', { scheduleId, scheduleName, startDate, endDate }),

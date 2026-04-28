@@ -180,8 +180,8 @@ router.post('/:id/shifts', authenticate, requireAdmin, async (req, res) => {
       await client.query('BEGIN');
       for (const sh of shifts) {
         await client.query(`
-          INSERT INTO shifts (schedule_id, employee_id, date, start_time, end_time, station, notes)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO shifts (schedule_id, employee_id, date, start_time, end_time, station, notes, is_floater)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `, [
           req.params.id,
           sh.employeeId,
@@ -189,7 +189,8 @@ router.post('/:id/shifts', authenticate, requireAdmin, async (req, res) => {
           sh.startTime || '09:00',
           sh.endTime || '17:00',
           sh.station || null,
-          sh.notes || null
+          sh.notes || null,
+          !!sh.isFloater,
         ]);
       }
       await client.query('COMMIT');
@@ -204,6 +205,133 @@ router.post('/:id/shifts', authenticate, requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('Add shifts error:', err);
     res.status(500).json({ error: 'Failed to add shifts' });
+  }
+});
+
+// ── POST /api/schedules/:scheduleId/shifts/:shiftId/counter/accept ──
+// Admin accepts an employee's counter-offer: replaces shift times with the
+// employee's proposed window and confirms the shift.
+router.post('/:scheduleId/shifts/:shiftId/counter/accept', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT sh.*, e.first_name, e.last_name FROM shifts sh
+      JOIN schedules s ON sh.schedule_id = s.id
+      JOIN employees e ON sh.employee_id = e.id
+      WHERE sh.id = $1 AND s.id = $2 AND s.business_id = $3
+    `, [req.params.shiftId, req.params.scheduleId, req.user.businessId]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Shift not found' });
+    const sh = rows[0];
+    if (sh.status !== 'counter' || !sh.counter_start || !sh.counter_end) {
+      return res.status(400).json({ error: 'No active counter offer on this shift' });
+    }
+
+    await pool.query(`
+      UPDATE shifts SET
+        start_time = counter_start,
+        end_time = counter_end,
+        status = 'confirmed',
+        counter_start = NULL, counter_end = NULL, counter_note = NULL,
+        responded_at = NOW()
+      WHERE id = $1
+    `, [req.params.shiftId]);
+
+    // Best-effort notification back to the employee.
+    try {
+      const { notifyEmployee } = require('./push');
+      if (notifyEmployee) {
+        notifyEmployee(sh.employee_id,
+          '✅ Your shift offer was accepted',
+          `Your ${sh.station || ''} shift on ${sh.date} is now ${sh.counter_start}–${sh.counter_end}.`,
+          '/schedule'
+        ).catch(() => {});
+      }
+    } catch (e) {}
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Accept counter error:', err);
+    res.status(500).json({ error: 'Failed to accept counter offer' });
+  }
+});
+
+// ── POST /api/schedules/:scheduleId/shifts/:shiftId/counter/reject ──
+// Admin rejects the counter — shift becomes 'declined' so it can be
+// auto-replaced. Counter fields are cleared.
+router.post('/:scheduleId/shifts/:shiftId/counter/reject', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT sh.* FROM shifts sh
+      JOIN schedules s ON sh.schedule_id = s.id
+      WHERE sh.id = $1 AND s.id = $2 AND s.business_id = $3
+    `, [req.params.shiftId, req.params.scheduleId, req.user.businessId]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Shift not found' });
+    const sh = rows[0];
+
+    await pool.query(`
+      UPDATE shifts SET
+        status = 'declined',
+        decline_reason = COALESCE(decline_reason, 'Counter rejected'),
+        counter_start = NULL, counter_end = NULL, counter_note = NULL,
+        responded_at = NOW()
+      WHERE id = $1
+    `, [req.params.shiftId]);
+
+    try {
+      const { notifyEmployee } = require('./push');
+      if (notifyEmployee) {
+        notifyEmployee(sh.employee_id,
+          'Shift offer not accepted',
+          `Your alternate hours for the ${sh.station || ''} shift on ${sh.date} weren't accepted. Your manager will line up someone else.`,
+          '/schedule'
+        ).catch(() => {});
+      }
+    } catch (e) {}
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Reject counter error:', err);
+    res.status(500).json({ error: 'Failed to reject counter offer' });
+  }
+});
+
+// ── PATCH /api/schedules/:scheduleId/shifts/:shiftId ──
+// Edit a single shift's start/end time, station, or floater flag (admin).
+// Used to give individual employees an irregular start time on an otherwise
+// standard shift block — e.g. shift opens at 9:00 but Karen schedules
+// someone for 10:15 with a floater filling the gap.
+router.patch('/:scheduleId/shifts/:shiftId', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { startTime, endTime, station, isFloater, notes } = req.body;
+
+    // Confirm the shift belongs to this business.
+    const { rows } = await pool.query(`
+      SELECT sh.* FROM shifts sh
+      JOIN schedules s ON sh.schedule_id = s.id
+      WHERE sh.id = $1 AND s.id = $2 AND s.business_id = $3
+    `, [req.params.shiftId, req.params.scheduleId, req.user.businessId]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Shift not found' });
+
+    // Build a partial update — only set columns the caller passed.
+    const fields = [];
+    const values = [];
+    let i = 1;
+    if (startTime !== undefined) { fields.push(`start_time = $${i++}`); values.push(startTime); }
+    if (endTime !== undefined)   { fields.push(`end_time = $${i++}`);   values.push(endTime); }
+    if (station !== undefined)   { fields.push(`station = $${i++}`);    values.push(station); }
+    if (isFloater !== undefined) { fields.push(`is_floater = $${i++}`); values.push(!!isFloater); }
+    if (notes !== undefined)     { fields.push(`notes = $${i++}`);      values.push(notes); }
+
+    if (fields.length === 0) return res.json({ success: true, updated: 0 });
+
+    values.push(req.params.shiftId);
+    await pool.query(
+      `UPDATE shifts SET ${fields.join(', ')} WHERE id = $${i}`,
+      values
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Patch shift error:', err);
+    res.status(500).json({ error: 'Failed to update shift' });
   }
 });
 
@@ -228,12 +356,22 @@ router.delete('/:scheduleId/shifts/:shiftId', authenticate, requireAdmin, async 
 });
 
 // ── PUT /api/shifts/:id/respond ──
-// Employee confirms or declines a shift
+// Employee confirms, declines, or counter-offers a shift.
+// Counter offer: status='counter' + counterOffer:{startTime, endTime, note}.
+// Means "I can't do the full shift but I CAN do this window — admin's call."
 router.put('/:scheduleId/shifts/:shiftId/respond', authenticate, async (req, res) => {
   try {
-    const { status, notes, decline_reason } = req.body;
-    if (!['confirmed', 'declined'].includes(status)) {
-      return res.status(400).json({ error: 'Status must be confirmed or declined' });
+    const { status, notes, decline_reason, counterOffer } = req.body;
+    if (!['confirmed', 'declined', 'counter'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be confirmed, declined, or counter' });
+    }
+    if (status === 'counter') {
+      if (!counterOffer || !counterOffer.startTime || !counterOffer.endTime) {
+        return res.status(400).json({ error: 'counterOffer must include startTime and endTime' });
+      }
+      if (counterOffer.endTime <= counterOffer.startTime) {
+        return res.status(400).json({ error: 'counter end must be after start' });
+      }
     }
 
     const { rows } = await pool.query(`
@@ -244,11 +382,30 @@ router.put('/:scheduleId/shifts/:shiftId/respond', authenticate, async (req, res
 
     if (rows.length === 0) return res.status(404).json({ error: 'Shift not found' });
 
-    await pool.query(`
-      UPDATE shifts SET status = $1, notes = COALESCE($2, notes),
-        decline_reason = $3, responded_at = NOW()
-      WHERE id = $4
-    `, [status, notes || null, status === 'declined' ? (decline_reason || null) : null, req.params.shiftId]);
+    if (status === 'counter') {
+      await pool.query(`
+        UPDATE shifts SET status = 'counter',
+          counter_start = $1, counter_end = $2, counter_note = $3,
+          notes = COALESCE($4, notes),
+          decline_reason = NULL,
+          responded_at = NOW()
+        WHERE id = $5
+      `, [
+        counterOffer.startTime,
+        counterOffer.endTime,
+        counterOffer.note || null,
+        notes || null,
+        req.params.shiftId,
+      ]);
+    } else {
+      await pool.query(`
+        UPDATE shifts SET status = $1, notes = COALESCE($2, notes),
+          decline_reason = $3,
+          counter_start = NULL, counter_end = NULL, counter_note = NULL,
+          responded_at = NOW()
+        WHERE id = $4
+      `, [status, notes || null, status === 'declined' ? (decline_reason || null) : null, req.params.shiftId]);
+    }
 
     // Adjust Reliability rating based on response
     try {
@@ -280,6 +437,19 @@ router.put('/:scheduleId/shifts/:shiftId/respond', authenticate, async (req, res
         notifyBusinessAdmins(req.user.businessId,
           '⚠️ Shift Declined',
           `${empName} declined their ${shift.station || ''} shift on ${shift.date}`,
+          `/admin/schedule/${shift.schedule_id}`
+        ).catch(() => {});
+      } catch (e) {}
+    }
+
+    // Notify admins when an employee proposes a counter-offer.
+    if (status === 'counter') {
+      try {
+        const shift = rows[0];
+        const empName = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim();
+        notifyBusinessAdmins(req.user.businessId,
+          '💬 Counter offer on shift',
+          `${empName} can't do the full ${shift.station || ''} shift on ${shift.date} but offered ${counterOffer.startTime}–${counterOffer.endTime}.`,
           `/admin/schedule/${shift.schedule_id}`
         ).catch(() => {});
       } catch (e) {}

@@ -154,7 +154,10 @@ async function renderNotifStatus() {
             <span class="text-sm">Notifications are <strong>enabled</strong></span>
           </div>
           <p class="text-xs text-muted mt-1">You'll get notified when schedules are posted, shifts change, or swap requests come in.</p>
-          <button class="btn btn-ghost btn-sm mt-2" onclick="disablePushNotifs()">Disable Notifications</button>
+          <div class="flex gap-2 mt-2" style="flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" onclick="sendTestPush()">🔔 Send Test Push</button>
+            <button class="btn btn-ghost btn-sm" onclick="disablePushNotifs()">Disable</button>
+          </div>
         `;
       } else {
         el.innerHTML = `
@@ -229,5 +232,18 @@ async function disablePushNotifs() {
     renderNotifStatus();
   } catch (err) {
     UI.toast('Failed: ' + err.message, 'error');
+  }
+}
+
+async function sendTestPush() {
+  try {
+    const r = await API.sendTestPush();
+    if (r.sent > 0) {
+      UI.toast('Test push sent — check your lock screen');
+    } else {
+      UI.toast('No active subscription on this device', 'error');
+    }
+  } catch (err) {
+    UI.toast(err.message || 'Test push failed', 'error');
   }
 }

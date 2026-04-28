@@ -380,13 +380,29 @@ router.put('/settings', authenticate, requireAdmin, async (req, res) => {
 // Update a station (admin)
 router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { name, description, openTime, closeTime, arriveEarlyMinutes, staffNeeded, minStaff, maxStaff, active } = req.body;
+    const { name, description, openTime, closeTime, arriveEarlyMinutes, staffNeeded, minStaff, maxStaff, active, demandWindows } = req.body;
 
     const { rows } = await pool.query(
       'SELECT * FROM stations WHERE id = $1 AND business_id = $2',
       [req.params.id, req.user.businessId]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Station not found' });
+
+    // Validate / normalize demand windows. Pass `null` to clear, or an array
+    // of {start, end, count}. Out-of-shape values fall back to null so we
+    // don't store garbage.
+    let normalizedDemand = undefined;
+    if (demandWindows !== undefined) {
+      if (demandWindows === null || (Array.isArray(demandWindows) && demandWindows.length === 0)) {
+        normalizedDemand = null;
+      } else if (Array.isArray(demandWindows)) {
+        const cleaned = demandWindows
+          .filter(w => w && w.start && w.end && Number.isFinite(Number(w.count)))
+          .map(w => ({ start: String(w.start), end: String(w.end), count: Math.max(0, Math.round(Number(w.count))) }))
+          .sort((a, b) => a.start.localeCompare(b.start));
+        normalizedDemand = cleaned.length > 0 ? cleaned : null;
+      }
+    }
 
     const { rows: updated } = await pool.query(`
       UPDATE stations SET
@@ -398,8 +414,9 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
         staff_needed = COALESCE($6, staff_needed),
         min_staff = COALESCE($7, min_staff),
         max_staff = COALESCE($8, max_staff),
-        active = COALESCE($9, active)
-      WHERE id = $10
+        active = COALESCE($9, active),
+        demand_windows = CASE WHEN $11::boolean THEN $10::jsonb ELSE demand_windows END
+      WHERE id = $12
       RETURNING *
     `, [
       name || null,
@@ -411,6 +428,8 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
       minStaff != null ? minStaff : null,
       maxStaff != null ? maxStaff : (staffNeeded != null ? staffNeeded : null),
       active != null ? active : null,
+      normalizedDemand !== undefined ? JSON.stringify(normalizedDemand) : null,
+      normalizedDemand !== undefined,  // only overwrite when caller passed demandWindows
       req.params.id
     ]);
 

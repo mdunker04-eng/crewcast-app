@@ -194,7 +194,7 @@ function renderNextUpCard(shift) {
       ${shift.status === 'pending' ? `
         <div class="shift-actions" style="margin-top:10px">
           <button class="btn btn-success btn-sm" onclick="respondToShift(${shift.schedule_id}, ${shift.id}, 'confirmed')">Confirm</button>
-          <button class="btn btn-danger btn-sm" onclick="showDeclineModal(${shift.schedule_id}, ${shift.id})">Can't Make It</button>
+          <button class="btn btn-danger btn-sm" onclick="showDeclineModal(${shift.schedule_id}, ${shift.id}, '${shift.start_time}', '${shift.end_time}')">Can't Make It</button>
         </div>
       ` : ''}
     </div>
@@ -230,7 +230,7 @@ function renderScheduleShiftCard(s) {
       ${s.status === 'pending' ? `
         <div class="shift-actions">
           <button class="btn btn-success btn-sm" onclick="respondToShift(${s.schedule_id}, ${s.id}, 'confirmed')">Confirm</button>
-          <button class="btn btn-danger btn-sm" onclick="showDeclineModal(${s.schedule_id}, ${s.id})">Can't Make It</button>
+          <button class="btn btn-danger btn-sm" onclick="showDeclineModal(${s.schedule_id}, ${s.id}, '${s.start_time}', '${s.end_time}')">Can't Make It</button>
         </div>
       ` : ''}
       ${s.status === 'declined' && s.decline_reason ? `
@@ -245,7 +245,7 @@ function renderScheduleShiftCard(s) {
   `;
 }
 
-function showDeclineModal(scheduleId, shiftId) {
+function showDeclineModal(scheduleId, shiftId, shiftStart, shiftEnd) {
   const reasons = [
     'Family commitment',
     'Already scheduled at other job',
@@ -255,6 +255,13 @@ function showDeclineModal(scheduleId, shiftId) {
     'School / class conflict',
     'Other'
   ];
+  // Default counter window: pick the back half of the shift (a reasonable
+  // "I can come in part-way" guess). Falls back to shift bounds if missing.
+  const startGuess = (shiftStart && shiftEnd)
+    ? midpointTime(shiftStart, shiftEnd)
+    : (shiftStart || '10:00');
+  const endGuess = shiftEnd || '17:00';
+
   UI.showModal("Can't Make It", `
     <p class="text-sm text-muted mb-3">Let your manager know why so they can plan ahead.</p>
     <div class="form-group">
@@ -272,8 +279,30 @@ function showDeclineModal(scheduleId, shiftId) {
       <label class="form-label">Please specify</label>
       <input type="text" id="decline-other" class="form-input" placeholder="What's going on?">
     </div>
+
+    <!-- Counter offer: I CAN do part of it -->
+    <div class="card" style="margin-top:8px;padding:12px;background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.25)">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
+        <input type="checkbox" id="counter-toggle" onchange="document.getElementById('counter-fields').classList.toggle('hidden', !this.checked)">
+        <span>💬 I can work <strong>part of it</strong> — offer alternate hours</span>
+      </label>
+      <div id="counter-fields" class="hidden" style="margin-top:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label class="form-label text-xs">I can start at</label>
+            <input type="time" id="counter-start" class="form-input" value="${startGuess}">
+          </div>
+          <div>
+            <label class="form-label text-xs">And work until</label>
+            <input type="time" id="counter-end" class="form-input" value="${endGuess}">
+          </div>
+        </div>
+        <input type="text" id="counter-note" class="form-input mt-2" placeholder="Optional note for your manager">
+        <p class="text-xs text-muted mt-2">Your manager will see this and either accept or pass.</p>
+      </div>
+    </div>
   `, `
-    <button class="btn btn-danger" onclick="submitDecline(${scheduleId}, ${shiftId})">Decline Shift</button>
+    <button class="btn btn-primary" id="decline-submit-btn" onclick="submitDecline(${scheduleId}, ${shiftId})">Decline Shift</button>
     <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
   `);
 
@@ -283,7 +312,32 @@ function showDeclineModal(scheduleId, shiftId) {
         document.getElementById('decline-other-wrap').classList.toggle('hidden', r.value !== 'Other');
       });
     });
+    // Re-label the submit button when counter is enabled.
+    const counterBox = document.getElementById('counter-toggle');
+    const submitBtn = document.getElementById('decline-submit-btn');
+    if (counterBox && submitBtn) {
+      counterBox.addEventListener('change', () => {
+        if (counterBox.checked) {
+          submitBtn.textContent = 'Send Counter Offer';
+          submitBtn.classList.remove('btn-danger');
+          submitBtn.classList.add('btn-primary');
+        } else {
+          submitBtn.textContent = 'Decline Shift';
+          submitBtn.classList.remove('btn-primary');
+          submitBtn.classList.add('btn-danger');
+        }
+      });
+    }
   }, 50);
+}
+
+// Halfway point between two HH:MM times. Used to seed the counter-offer
+// time picker with something sensible.
+function midpointTime(a, b) {
+  const toM = t => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+  const fromM = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  const am = toM(a), bm = toM(b);
+  return fromM(Math.round((am + bm) / 2));
 }
 
 async function submitDecline(scheduleId, shiftId) {
@@ -292,6 +346,28 @@ async function submitDecline(scheduleId, shiftId) {
   if (reason === 'Other') {
     reason = document.getElementById('decline-other')?.value || 'Other';
   }
+
+  // Counter-offer path: send status='counter' with the alternate window.
+  const counterToggle = document.getElementById('counter-toggle');
+  if (counterToggle && counterToggle.checked) {
+    const startTime = document.getElementById('counter-start').value;
+    const endTime = document.getElementById('counter-end').value;
+    const note = document.getElementById('counter-note').value;
+    if (!startTime || !endTime) { UI.toast('Pick a start and end time', 'error'); return; }
+    if (endTime <= startTime) { UI.toast('End must be after start', 'error'); return; }
+    try {
+      await API.respondShift(scheduleId, shiftId, 'counter', null, reason || null, {
+        startTime, endTime, note: note || null
+      });
+      UI.closeModal();
+      UI.toast('Counter offer sent — your manager will respond');
+      renderEmployeeSchedule(document.getElementById('app'));
+    } catch (err) {
+      UI.toast(err.message, 'error');
+    }
+    return;
+  }
+
   try {
     await API.respondShift(scheduleId, shiftId, 'declined', null, reason);
     UI.closeModal();

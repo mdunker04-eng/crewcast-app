@@ -60,6 +60,7 @@ const UI = {
       open: ['badge-amber', 'Open'],
       accepted: ['badge-green', 'Accepted'],
       cancelled: ['badge-red', 'Cancelled'],
+      counter: ['badge-blue', 'Counter Offer'],
       'swap-pending': ['badge-purple', 'Swap Pending'],
     };
     const [cls, label] = map[status] || ['badge-blue', status];

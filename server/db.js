@@ -319,6 +319,27 @@ async function initDB() {
       ALTER TABLE shifts ADD COLUMN IF NOT EXISTS decline_reason TEXT
     `).catch(() => {});
 
+    // Mark a shift as a "floater" — assigned to bridge a coverage gap when
+    // someone else has an irregular start. Pure metadata so the UI can flag it.
+    await client.query(`
+      ALTER TABLE shifts ADD COLUMN IF NOT EXISTS is_floater BOOLEAN DEFAULT false
+    `).catch(() => {});
+
+    // Counter-offer fields. When an employee can't work the full shift but
+    // CAN work part of it, they reply with a counter (status='counter') and
+    // these columns hold the alternate window they're proposing. Admin
+    // can then accept (updates shift to confirmed with new times) or reject.
+    await client.query(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS counter_start TEXT`).catch(() => {});
+    await client.query(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS counter_end TEXT`).catch(() => {});
+    await client.query(`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS counter_note TEXT`).catch(() => {});
+
+    // Per-station hourly demand curve (Feature 2). Stored as JSONB array of
+    // {start, end, count}. NULL means use the flat staff_needed.
+    // Example: [{"start":"09:00","end":"12:00","count":2}, {"start":"12:00","end":"15:00","count":4}]
+    await client.query(`
+      ALTER TABLE stations ADD COLUMN IF NOT EXISTS demand_windows JSONB DEFAULT NULL
+    `).catch(() => {});
+
     // Add rank column to employee_stations for preference ordering
     await client.query(`
       ALTER TABLE employee_stations ADD COLUMN IF NOT EXISTS rank INTEGER DEFAULT 0

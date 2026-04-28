@@ -149,19 +149,8 @@ async function renderScheduleDetail(app, params) {
       ${viewMode === 'overview' ? Object.entries(byDate).map(([date, dayShifts]) => `
         <div class="mb-4">
           <h3 class="text-purple mb-2">${UI.formatDate(date)} (${dayShifts.length} staff)</h3>
-          ${dayShifts.map(s => `
-            <div class="shift-card ${s.status}">
-              <div class="flex justify-between items-center">
-                <div>
-                  <div class="semi">${s.first_name} ${s.last_name}</div>
-                  <div class="shift-time">${UI.formatTime(s.start_time)} - ${UI.formatTime(s.end_time)}</div>
-                  ${s.station ? `<div class="shift-station">Station: ${s.station}</div>` : ''}
-                  ${s.status === 'declined' && s.decline_reason ? `<div class="text-xs text-red mt-1">Reason: ${s.decline_reason}</div>` : ''}
-                </div>
-                ${UI.statusBadge(s.status)}
-              </div>
-            </div>
-          `).join('')}
+          ${dayShifts.map(s => renderAdminShiftCard(s, scheduleId, false)).join('')}
+          ${renderCoverageGapWarnings(dayShifts, scheduleId, date, /*groupedByStation=*/true)}
         </div>
       `).join('') : ''}
 
@@ -177,18 +166,8 @@ async function renderScheduleDetail(app, params) {
           return Object.entries(byStation).map(([station, stShifts]) => `
             <div class="mb-4">
               <h3 class="text-purple mb-2">${station} (${stShifts.length} staff)</h3>
-              ${stShifts.map(s => `
-                <div class="shift-card ${s.status}">
-                  <div class="flex justify-between items-center">
-                    <div>
-                      <div class="semi">${s.first_name} ${s.last_name}</div>
-                      <div class="shift-time">${UI.formatTime(s.start_time)} - ${UI.formatTime(s.end_time)} · ${UI.formatDate(s.date)}</div>
-                      ${s.status === 'declined' && s.decline_reason ? `<div class="text-xs text-red mt-1">Reason: ${s.decline_reason}</div>` : ''}
-                    </div>
-                    ${UI.statusBadge(s.status)}
-                  </div>
-                </div>
-              `).join('')}
+              ${stShifts.map(s => renderAdminShiftCard(s, scheduleId, true)).join('')}
+              ${renderCoverageGapWarnings(stShifts, scheduleId, null, /*groupedByStation=*/false)}
             </div>
           `).join('');
         })()}
@@ -210,6 +189,212 @@ async function renderScheduleDetail(app, params) {
       <div class="card text-center"><p class="text-red">${err.message}</p></div>
     `;
   }
+}
+
+// ── Per-shift admin card with edit-time + floater controls ──
+// Replaces inline shift markup in renderScheduleDetail. Shows the same
+// info as before plus a clock icon to override start/end time and a
+// 🛟 badge on shifts the admin has marked as "floater" coverage.
+function renderAdminShiftCard(s, scheduleId, showDate) {
+  const station = s.station ? `<div class="shift-station">Station: ${s.station}</div>` : '';
+  const dateText = showDate ? ` · ${UI.formatDate(s.date)}` : '';
+  const floater = s.is_floater
+    ? `<span class="badge" style="background:rgba(96,165,250,.18);color:#60A5FA;border:1px solid rgba(96,165,250,.4);font-size:10px;margin-left:6px">🛟 Floater</span>`
+    : '';
+  const declineReason = s.status === 'declined' && s.decline_reason
+    ? `<div class="text-xs text-red mt-1">Reason: ${s.decline_reason}</div>`
+    : '';
+  // Counter-offer banner: visible when employee proposed alt hours.
+  const counter = s.status === 'counter' && s.counter_start && s.counter_end ? `
+    <div style="margin-top:8px;padding:10px 12px;background:rgba(96,165,250,.10);border:1px solid rgba(96,165,250,.4);border-radius:8px">
+      <div class="flex items-start gap-2">
+        <span style="font-size:18px;line-height:1">💬</span>
+        <div style="flex:1">
+          <div class="semi text-sm" style="color:#60A5FA">Counter offer: ${UI.formatTime(s.counter_start)}–${UI.formatTime(s.counter_end)}</div>
+          ${s.counter_note ? `<div class="text-xs text-muted" style="margin-top:2px">"${escapeHtmlSafe(s.counter_note)}"</div>` : ''}
+          ${s.decline_reason ? `<div class="text-xs text-muted" style="margin-top:2px">Reason given: ${escapeHtmlSafe(s.decline_reason)}</div>` : ''}
+          <div class="flex gap-2 mt-2">
+            <button class="btn btn-success btn-sm" onclick="acceptCounter(${scheduleId}, ${s.id})">Accept</button>
+            <button class="btn btn-danger btn-sm" onclick="rejectCounter(${scheduleId}, ${s.id})">Reject</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  ` : '';
+
+  return `
+    <div class="shift-card ${s.status}">
+      <div class="flex justify-between items-center">
+        <div style="flex:1;min-width:0">
+          <div class="semi">${s.first_name} ${s.last_name}${floater}</div>
+          <div class="shift-time">${UI.formatTime(s.start_time)} - ${UI.formatTime(s.end_time)}${dateText}</div>
+          ${station}
+          ${declineReason}
+        </div>
+        <div class="flex items-center gap-1">
+          ${UI.statusBadge(s.status)}
+          <button class="btn btn-ghost btn-sm" title="Edit time / mark floater"
+            style="padding:4px 6px;font-size:14px"
+            onclick="editShiftTime(${scheduleId}, ${s.id}, '${s.start_time}', '${s.end_time}', ${s.is_floater ? 'true' : 'false'})">⏱</button>
+        </div>
+      </div>
+      ${counter}
+    </div>
+  `;
+}
+
+function escapeHtmlSafe(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+async function acceptCounter(scheduleId, shiftId) {
+  try {
+    await API.acceptCounter(scheduleId, shiftId);
+    UI.toast('Counter offer accepted — shift updated to new hours');
+    renderScheduleDetail(document.getElementById('app'), { id: scheduleId });
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
+}
+
+async function rejectCounter(scheduleId, shiftId) {
+  if (!confirm('Reject this counter offer? The shift will be marked declined.')) return;
+  try {
+    await API.rejectCounter(scheduleId, shiftId);
+    UI.toast('Counter offer rejected');
+    renderScheduleDetail(document.getElementById('app'), { id: scheduleId });
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
+}
+
+// Find coverage gaps within a group of shifts on the same station/date.
+// A gap is when one employee's start time is later than the earliest start
+// for that station on that date. Renders a yellow warning per gap with a
+// one-click "Add floater shift" button.
+function renderCoverageGapWarnings(shifts, scheduleId, dateFilter, groupedByStation) {
+  if (!shifts || shifts.length < 2) return '';
+
+  // If we're in the by-date view, group by station. Otherwise the caller
+  // already grouped by station so just use the whole list as one group.
+  const groups = {};
+  for (const s of shifts) {
+    if (dateFilter && s.date !== dateFilter) continue;
+    const key = groupedByStation
+      ? `${s.station || 'Unassigned'}|${s.date}`
+      : `${s.station || 'Unassigned'}|${s.date}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(s);
+  }
+
+  const warnings = [];
+  for (const [key, group] of Object.entries(groups)) {
+    if (group.length < 2) continue;
+    const [station, date] = key.split('|');
+    // Anchor = earliest non-floater start on this station/date.
+    const anchors = group.filter(s => !s.is_floater).map(s => s.start_time).sort();
+    if (anchors.length === 0) continue;
+    const earliest = anchors[0];
+    const lateStarters = group.filter(s => !s.is_floater && s.start_time > earliest);
+    for (const late of lateStarters) {
+      const w = `
+        <div class="card mb-2" style="border:1px solid rgba(251,191,36,.4);background:rgba(251,191,36,.08);padding:10px 12px">
+          <div class="flex items-start gap-2">
+            <span style="font-size:18px;line-height:1">⚠️</span>
+            <div style="flex:1">
+              <div class="semi text-sm" style="color:#FBBF24">Coverage gap on ${station}</div>
+              <div class="text-xs text-muted" style="margin-top:2px">
+                ${late.first_name} ${late.last_name} starts at ${UI.formatTime(late.start_time)}, but the station opens at ${UI.formatTime(earliest)}.
+                Schedule a <strong>floater</strong> for ${UI.formatTime(earliest)}–${UI.formatTime(late.start_time)}.
+              </div>
+              <button class="btn btn-secondary btn-sm mt-2"
+                onclick="openFloaterModal(${scheduleId}, '${date}', '${station === 'Unassigned' ? '' : station}', '${earliest}', '${late.start_time}')">
+                🛟 Add floater
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      warnings.push(w);
+    }
+  }
+  return warnings.join('');
+}
+
+function editShiftTime(scheduleId, shiftId, currStart, currEnd, isFloater) {
+  UI.showModal('Edit shift time', `
+    <p class="text-xs text-muted mb-3">
+      Override this employee's start and end. Use this when one person
+      can't make the standard shift window.
+    </p>
+    <div class="form-group">
+      <label class="form-label">Start time</label>
+      <input type="time" id="shift-edit-start" class="form-input" value="${currStart}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">End time</label>
+      <input type="time" id="shift-edit-end" class="form-input" value="${currEnd}">
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;padding:6px 0">
+      <input type="checkbox" id="shift-edit-floater" ${isFloater ? 'checked' : ''}>
+      <span>Mark as <strong>floater</strong> (covers a coverage gap)</span>
+    </label>
+  `, `
+    <button class="btn btn-primary" onclick="saveShiftEdit(${scheduleId}, ${shiftId})">Save</button>
+    <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
+  `);
+}
+
+async function saveShiftEdit(scheduleId, shiftId) {
+  const startTime = document.getElementById('shift-edit-start').value;
+  const endTime = document.getElementById('shift-edit-end').value;
+  const isFloater = document.getElementById('shift-edit-floater').checked;
+  if (!startTime || !endTime) { UI.toast('Start and end required', 'error'); return; }
+  if (endTime <= startTime) { UI.toast('End must be after start', 'error'); return; }
+  try {
+    await API.updateShift(scheduleId, shiftId, { startTime, endTime, isFloater });
+    UI.closeModal();
+    UI.toast('Shift updated');
+    renderScheduleDetail(document.getElementById('app'), { id: scheduleId });
+  } catch (err) {
+    UI.toast(err.message, 'error');
+  }
+}
+
+// Open the Add Shifts modal pre-filled to assign a floater for a coverage gap.
+function openFloaterModal(scheduleId, date, station, gapStart, gapEnd) {
+  showAddShiftsModal(scheduleId).then(() => {
+    // showAddShiftsModal is async — small delay to ensure DOM is ready.
+    setTimeout(() => {
+      const stEl = document.getElementById('shift-station');
+      const dEl = document.getElementById('shift-date');
+      const sEl = document.getElementById('shift-start');
+      const eEl = document.getElementById('shift-end');
+      if (stEl && station) {
+        for (const opt of stEl.options) {
+          if (opt.value === station) { stEl.value = station; break; }
+        }
+      }
+      if (dEl) dEl.value = date;
+      if (sEl) sEl.value = gapStart;
+      if (eEl) eEl.value = gapEnd;
+      // Drop a hint header inside the modal so the admin knows this is a floater fill.
+      const modalBody = document.querySelector('.modal-body, .modal');
+      if (modalBody && !document.getElementById('floater-hint')) {
+        const hint = document.createElement('div');
+        hint.id = 'floater-hint';
+        hint.className = 'card';
+        hint.style.cssText = 'background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.35);padding:8px 12px;margin-bottom:12px';
+        hint.innerHTML = `🛟 <strong>Floater fill</strong> — pick anyone available. They'll be marked as a floater on save.`;
+        modalBody.insertBefore(hint, modalBody.firstChild);
+      }
+      // Tag the next save as floater. Hook into the original save button.
+      const saveBtn = document.querySelector('.modal button.btn-primary');
+      if (saveBtn) saveBtn.dataset.markFloater = '1';
+    }, 80);
+  });
 }
 
 async function showAddShiftsModal(scheduleId) {
@@ -276,16 +461,36 @@ async function addShiftsToSchedule(scheduleId) {
     return;
   }
 
+  // If the modal was opened from a coverage-gap "Add floater" prompt, the
+  // floater hint banner will be present — auto-mark the new shifts.
+  const markFloater = !!document.getElementById('floater-hint');
+
   const shifts = employeeIds.map(empId => ({
     employeeId: empId,
     date,
     startTime,
     endTime,
     station: station || null,
+    isFloater: markFloater,
   }));
 
   try {
     await API.addShifts(scheduleId, shifts);
+    if (markFloater) {
+      // The bulk POST endpoint doesn't currently set is_floater, so PATCH
+      // each new shift after the fact. Pull the schedule's shifts and find
+      // the just-created ones by employee+date+start.
+      try {
+        const resp = await API.getShifts(scheduleId);
+        const matchSet = new Set(employeeIds.map(id => `${id}|${date}|${startTime}`));
+        const newOnes = resp.shifts.filter(s =>
+          matchSet.has(`${s.employee_id}|${s.date}|${s.start_time}`) && !s.is_floater
+        );
+        await Promise.all(newOnes.map(s =>
+          API.updateShift(scheduleId, s.id, { isFloater: true })
+        ));
+      } catch (e) { /* non-fatal */ }
+    }
     UI.closeModal();
     UI.toast(`${shifts.length} shifts added!`);
     renderScheduleDetail(document.getElementById('app'), { id: scheduleId });

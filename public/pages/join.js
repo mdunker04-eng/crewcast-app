@@ -89,9 +89,25 @@ async function joinFindAndSetup(slug) {
     // Load feature flags
     try { API.features = await API.getFeatures(); } catch (e) { API.features = {}; }
 
-    document.getElementById('join-welcome-name').textContent = data.user.firstName;
     document.getElementById('join-step-phone').style.display = 'none';
-    document.getElementById('join-step-done').style.display = 'block';
+
+    // Reuse the same install-prominent landing as the /invite/<token> path.
+    // setup.js exposes renderSetupSuccess(user) globally; we just need a
+    // container with id="setup-box" for it to render into.
+    const done = document.getElementById('join-step-done');
+    done.style.display = 'block';
+    done.innerHTML = '<div id="setup-box"></div>';
+    if (typeof renderSetupSuccess === 'function') {
+      renderSetupSuccess(data.user);
+    } else {
+      document.getElementById('setup-box').innerHTML = `
+        <div style="text-align:center;padding:20px 0">
+          <div style="font-size:48px;margin-bottom:12px">🎉</div>
+          <div class="semi" style="font-size:18px;margin-bottom:8px">You're all set, ${data.user.firstName}!</div>
+          <button class="btn btn-primary btn-block" onclick="Router.navigate('/', true)">Go to My Dashboard</button>
+        </div>
+      `;
+    }
   } catch (err) {
     UI.toast(err.message, 'error');
     btn.textContent = 'Get Started';

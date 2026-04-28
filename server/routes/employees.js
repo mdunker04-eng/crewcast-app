@@ -14,11 +14,12 @@ const router = express.Router();
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT id, first_name, last_name, phone, role, skills, active, rating,
-             (pin_hash IS NOT NULL) as has_pin, invite_token, created_at
-      FROM employees
-      WHERE business_id = $1
-      ORDER BY last_name, first_name
+      SELECT e.id, e.first_name, e.last_name, e.phone, e.role, e.skills, e.active, e.rating,
+             (e.pin_hash IS NOT NULL) as has_pin, e.invite_token, e.created_at,
+             EXISTS (SELECT 1 FROM push_subscriptions ps WHERE ps.employee_id = e.id) as has_push
+      FROM employees e
+      WHERE e.business_id = $1
+      ORDER BY e.last_name, e.first_name
     `, [req.user.businessId]);
 
     res.json(rows.map(e => ({
@@ -30,6 +31,7 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
       skills: JSON.parse(e.skills || '{}'),
       active: e.active,
       hasPin: e.has_pin,
+      hasPush: e.has_push,
       inviteToken: e.invite_token,
       rating: e.rating,
       createdAt: e.created_at,

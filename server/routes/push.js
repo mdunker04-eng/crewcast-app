@@ -126,6 +126,49 @@ router.post('/send', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ── POST /api/push/test ──
+// Fire a test notification to ONLY the admin who calls this endpoint.
+// Lets admins verify push setup without bothering employees.
+router.post('/test', authenticate, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM push_subscriptions WHERE employee_id = $1',
+      [req.user.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({
+        error: "You don't have any push subscriptions yet. Open Settings on this device → Turn On Notifications first.",
+      });
+    }
+
+    const businessName = await getBusinessName(req.user.businessId);
+    const payload = JSON.stringify({
+      title: brandTitle(businessName, '🔔 Test notification'),
+      body: "Push notifications are working on this device. You're set.",
+      url: '/',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-72.png',
+    });
+
+    let sent = 0;
+    for (const sub of rows) {
+      try {
+        await webpush.sendNotification(JSON.parse(sub.subscription), payload);
+        sent++;
+      } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await pool.query('DELETE FROM push_subscriptions WHERE id = $1', [sub.id]);
+        }
+      }
+    }
+    res.json({ sent, total: rows.length });
+  } catch (err) {
+    console.error('Test push error:', err);
+    res.status(500).json({ error: 'Failed to send test push' });
+  }
+});
+
 // Helper: send notification to a single employee (used internally)
 async function notifyEmployee(employeeId, title, body, url) {
   const { rows } = await pool.query(

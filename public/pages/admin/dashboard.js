@@ -114,7 +114,8 @@ async function renderAdminDashboard(app) {
   }
 }
 
-function showNotifyModal() {
+async function showNotifyModal() {
+  // Show modal first with loading reach count, then fill in.
   UI.showModal('Send Push Notification', `
     <div class="form-group">
       <label class="form-label">Title</label>
@@ -124,10 +125,27 @@ function showNotifyModal() {
       <label class="form-label">Message</label>
       <input type="text" id="notify-body" class="form-input" placeholder="Your schedule for this weekend is ready!">
     </div>
+    <div id="notify-reach" class="text-xs text-muted" style="margin-top:-6px;margin-bottom:8px">Counting how many employees can receive push…</div>
   `, `
     <button class="btn btn-primary" onclick="sendNotification()">Send to All</button>
     <button class="btn btn-secondary" onclick="UI.closeModal()">Cancel</button>
   `);
+
+  // Compute reach: active employees with a push subscription.
+  try {
+    const employees = await API.getEmployees();
+    const active = employees.filter(e => e.active);
+    const reachable = active.filter(e => e.hasPush);
+    const reachEl = document.getElementById('notify-reach');
+    if (!reachEl) return;
+    if (reachable.length === active.length) {
+      reachEl.innerHTML = `🔔 <strong>${reachable.length} of ${active.length}</strong> active employees will receive this push.`;
+      reachEl.style.color = 'var(--green-text)';
+    } else {
+      reachEl.innerHTML = `🔔 <strong>${reachable.length} of ${active.length}</strong> active employees will receive this push. The other ${active.length - reachable.length} haven't enabled notifications yet.`;
+      reachEl.style.color = 'var(--amber, #F59E0B)';
+    }
+  } catch (e) { /* leave the loading text */ }
 }
 
 async function sendNotification() {

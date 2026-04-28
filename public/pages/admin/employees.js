@@ -100,8 +100,9 @@ async function renderAdminEmployees(app) {
           <div class="stat-value text-green">${active.length}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Registered</div>
-          <div class="stat-value text-purple">${employees.filter(e => e.hasPin).length}</div>
+          <div class="stat-label">Notifications On</div>
+          <div class="stat-value text-purple">${active.filter(e => e.hasPush).length}</div>
+          <div class="stat-sub">of ${active.length}</div>
         </div>
       </div>
 
@@ -140,6 +141,7 @@ async function renderAdminEmployees(app) {
                 <div class="text-xs ${noPhone ? '' : 'text-muted'}" style="margin-top:1px${noPhone ? ';color:#F87171' : ''}">${noPhone ? 'Add a phone number so this employee can log in' : formatPhoneNumber(e.phone)}${empStations.length > 0 ? ` · ${empStations.length} station${empStations.length !== 1 ? 's' : ''}` : ''}</div>
               </div>
               <div class="flex items-center gap-2">
+                ${e.hasPush ? '<span title="Notifications enabled" style="font-size:14px">🔔</span>' : '<span title="Notifications NOT enabled — they won\'t see your messages" style="font-size:14px;opacity:.4">🔕</span>'}
                 ${e.hasPin ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Invited</span>'}
                 <button class="btn btn-ghost btn-sm" onclick="showEmployeeOptions(${e.id}, '${e.firstName}', '${e.lastName}', '${e.inviteToken}', ${e.hasPin})">...</button>
               </div>
