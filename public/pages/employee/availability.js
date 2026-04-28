@@ -121,7 +121,7 @@ function showAvailDayModal(dateStr) {
   function timeOpts(selected) {
     let opts = '';
     for (let h = 5; h <= 22; h++) {
-      for (let m = 0; m < 60; m += 30) {
+      for (let m = 0; m < 60; m += 15) {
         const val = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         const label = UI.formatTime(val);
         opts += `<option value="${val}" ${val === selected ? 'selected' : ''}>${label}</option>`;
@@ -207,7 +207,7 @@ function addAvailBlock() {
   function timeOpts(selected) {
     let opts = '';
     for (let h = 5; h <= 22; h++) {
-      for (let m = 0; m < 60; m += 30) {
+      for (let m = 0; m < 60; m += 15) {
         const val = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         const label = UI.formatTime(val);
         opts += `<option value="${val}" ${val === selected ? 'selected' : ''}>${label}</option>`;

@@ -332,7 +332,10 @@ router.get('/features', authenticate, async (req, res) => {
       employeeRankStations: s.employeeRankStations !== false,
       employeeSetAvailability: s.employeeSetAvailability !== false,
       employeeRequestDaysOff: s.employeeRequestDaysOff || false,
-      allowSplitShifts: s.allowSplitShifts || false,
+      // Default ON — most agritourism employees (teens/parents/students) need
+      // to express morning + evening availability, e.g. "I can work 8–11 then
+      // 4–8 around school." Admin can opt out from Settings.
+      allowSplitShifts: s.allowSplitShifts !== false,
     });
   } catch (err) {
     console.error('Get features error:', err);
