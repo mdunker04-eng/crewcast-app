@@ -25,6 +25,16 @@ function renderJoin(app, params) {
           </div>
           <button id="join-find-btn" class="btn btn-primary btn-block"
             onclick="joinFindAndSetup('${slug}')">Get Started</button>
+          <p class="text-center text-muted text-xs mt-3" style="line-height:1.4">
+            By tapping <strong>Get Started</strong> you agree to receive
+            shift-related text messages from CrewCast (schedules, reminders,
+            swap requests) at the phone number above. Msg &amp; data rates may
+            apply. Reply <strong>STOP</strong> to unsubscribe,
+            <strong>HELP</strong> for help. See our
+            <a href="/sms-program" style="color:var(--purple-light)">SMS Program</a>,
+            <a href="/privacy" style="color:var(--purple-light)">Privacy Policy</a>,
+            and <a href="/terms" style="color:var(--purple-light)">Terms</a>.
+          </p>
           <div style="text-align:center;margin-top:16px">
             <span class="text-xs text-muted">Returning user?</span>
             <a href="/login" class="text-xs"

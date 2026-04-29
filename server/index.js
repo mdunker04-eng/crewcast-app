@@ -54,12 +54,15 @@ app.get('/demo', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'demo.html'));
 });
 
-// ── Privacy Policy & Terms (static pages for SMS carrier compliance) ──
+// ── Privacy Policy, Terms & SMS Program (static pages for SMS carrier compliance) ──
 app.get('/privacy', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'privacy.html'));
 });
 app.get('/terms', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'terms.html'));
+});
+app.get('/sms-program', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'sms-program.html'));
 });
 
 // ── Invite link handler ──

@@ -26,6 +26,16 @@ function renderLogin(app) {
           <p class="text-center text-muted text-xs mt-3">
             We'll send you a link — no password needed.
           </p>
+          <p class="text-center text-muted text-xs mt-2" style="line-height:1.4">
+            By tapping the button above you agree to receive a one-time sign-in
+            text from CrewCast at the number you entered, plus shift-related
+            messages from your employer once you're signed in. Msg &amp; data
+            rates may apply. Reply <strong>STOP</strong> to unsubscribe,
+            <strong>HELP</strong> for help. See our
+            <a href="/sms-program" style="color:var(--purple-light)">SMS Program</a>,
+            <a href="/privacy" style="color:var(--purple-light)">Privacy Policy</a>,
+            and <a href="/terms" style="color:var(--purple-light)">Terms</a>.
+          </p>
 
           <div id="login-link-sent" class="card"
             style="display:none;margin-top:16px;padding:14px;text-align:center">
